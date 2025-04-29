@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Family Member</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+  <!-- Navbar -->
+  <nav class="bg-indigo-700 px-6 py-4 flex justify-between items-center text-white">
+    <div class="text-xl font-bold">Logo</div>
+    <div class="flex space-x-2">
+      <a href="{% url 'dashboard' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Home</a>
+      <a href="#" class="bg-white text-indigo-600 py-2 px-6 rounded-lg font-semibold">Add Family Member</a>
+      <a href="{% url 'family_member_list' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Family Members</a>
+    </div>
+    <div class="flex items-center gap-4">
+      <span>{{ request.user.username }}</span>
+      <a href="{% url 'auth0_logout' %}" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Form Card -->
+  <div class="max-w-4xl mx-auto bg-white shadow-md rounded-xl mt-10 p-8">
+    <h2 class="text-xl font-bold mb-6">Add Family Member</h2>
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Name -->
+      <div>
+        <label class="block font-medium mb-1">Name</label>
+        <input type="text" name="name" class="w-full border border-gray-300 rounded px-4 py-2" placeholder="Enter full name" required />
+      </div>
+
+      <!-- Dates -->
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Date of Birth</label>
+          <input type="date" name="date_born" class="w-full border border-gray-300 rounded px-4 py-2" required />
+        </div>
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Date of Death</label>
+          <input type="date" name="date_death" class="w-full border border-gray-300 rounded px-4 py-2" />
+        </div>
+      </div>
+
+      <!-- Contenedor de Inputs de Imágenes -->
+<div id="imageInputContainer">
+  <label class="block font-medium mb-2">Images</label>
+  <input type="file" name="images" id="imageInput" accept="image/*" class="mb-4" />
+</div>
+
+<!-- Botón para Agregar Más Imágenes -->
+<button type="button" id="addImageButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+  Add another image
+</button>
+
+<!-- Aquí estarán los previews de cada imagen -->
+<div id="imageSlides" class="relative w-full mt-4"></div>
+
+
+      <!-- Contenedor de Inputs de Videos -->
+<div id="videoInputContainer">
+  <label class="block font-medium mb-2">Videos</label>
+  <input type="file" name="videos" id="videoInput" accept="video/*" class="mb-4" />
+</div>
+
+<!-- Botón para Agregar Más Videos -->
+<button type="button" id="addVideoButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+  Add another video
+</button>
+
+<!-- Aquí estarán los previews de cada video -->
+<div id="videoSlides" class="relative w-full mt-4"></div>
+
+
+      <!-- Burial Place & Gender -->
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Burial Place</label>
+          <input type="text" name="burial_place" class="w-full border border-gray-300 rounded px-4 py-2" />
+        </div>
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Gender</label>
+          <select name="gender" class="w-full border border-gray-300 rounded px-4 py-2">
+            <option value="" disabled selected>Select</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="O">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Biography -->
+      <div>
+        <label class="block font-medium mb-1">Biography</label>
+        <textarea name="biography" rows="4" class="w-full border border-gray-300 rounded px-4 py-2" placeholder="Write a short biography..."></textarea>
+      </div>
+
+      <!-- Relations -->
+      <h3 class="text-lg font-bold mt-6">Relations</h3>
+      <div class="flex flex-col md:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Related Family Member</label>
+          <input type="text" name="related_member" class="w-full border border-gray-300 rounded px-4 py-2" placeholder="Search or enter name" />
+        </div>
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Relationship</label>
+          <select name="relationship" class="w-full border border-gray-300 rounded px-4 py-2">
+            <option value="" disabled selected>Select</option>
+            <option value="parent">Parent</option>
+            <option value="sibling">Sibling</option>
+            <option value="child">Child</option>
+            <option value="spouse">Spouse</option>
+          </select>
+        </div>
+        <button type="button" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded h-10">Add Relation</button>
+      </div>
+
+      <!-- Submit -->
+      <div>
+        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded mt-6">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <footer class="bg-gray-900 text-center text-white text-sm py-4 mt-10">
+    © 2024 Memoriales Familiares. Todos los derechos reservados.
+  </footer>
+
+  <script>
+    feather.replace();
+
+    // === IMÁGENES ===
+    let imageFiles = [];
+    let imageEvents = [];
+    let imageDescs = [];
+    const imageSlides = document.getElementById("imageSlides");
+    const imageInputContainer = document.getElementById('imageInputContainer');
+    const addImageButton = document.getElementById('addImageButton');
+
+    document.getElementById("imageInput").addEventListener("change", handleImageUpload);
+
+    addImageButton.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.name = 'images';
+      newInput.accept = 'image/*';
+      newInput.className = 'mb-4';
+      newInput.addEventListener('change', handleImageUpload);
+      imageInputContainer.appendChild(newInput);
+    });
+
+    function handleImageUpload(event) {
+      const files = Array.from(event.target.files);
+      files.forEach(file => {
+        imageFiles.push(file);
+        imageEvents.push("");
+        imageDescs.push("");
+      });
+      showAllImages();
+    }
+
+    function showAllImages() {
+      imageSlides.innerHTML = ""; // Limpiar
+
+      imageFiles.forEach((file, index) => {
+        const container = document.createElement('div');
+        container.className = 'w-full flex flex-col items-center mb-4 relative';
+
+        container.innerHTML = `
+          <button type="button" onclick="removeImage(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">×</button>
+          <img src="${URL.createObjectURL(file)}" class="h-40 object-contain mb-2" />
+          <input type="text" name="image_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event">
+          <textarea name="image_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description"></textarea>
+        `;
+
+        imageSlides.appendChild(container);
+      });
+    }
+
+    function removeImage(index) {
+      imageFiles.splice(index, 1);
+      imageEvents.splice(index, 1);
+      imageDescs.splice(index, 1);
+      showAllImages();
+    }
+
+    // === VIDEOS ===
+    let videoFiles = [];
+    let videoEvents = [];
+    let videoDescs = [];
+    const videoSlides = document.getElementById("videoSlides");
+    const videoInputContainer = document.getElementById('videoInputContainer');
+    const addVideoButton = document.getElementById('addVideoButton');
+
+    document.getElementById("videoInput").addEventListener("change", handleVideoUpload);
+
+    addVideoButton.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.name = 'videos';
+      newInput.accept = 'video/*';
+      newInput.className = 'mb-4';
+      newInput.addEventListener('change', handleVideoUpload);
+      videoInputContainer.appendChild(newInput);
+    });
+
+    function handleVideoUpload(event) {
+      const files = Array.from(event.target.files);
+      files.forEach(file => {
+        videoFiles.push(file);
+        videoEvents.push("");
+        videoDescs.push("");
+      });
+      showAllVideos();
+    }
+
+    function showAllVideos() {
+      videoSlides.innerHTML = ""; // Limpiar
+
+      videoFiles.forEach((file, index) => {
+        const container = document.createElement('div');
+        container.className = 'w-full flex flex-col items-center mb-4 relative';
+
+        container.innerHTML = `
+          <button type="button" onclick="removeVideo(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">×</button>
+          <video controls class="h-40 mb-2">
+            <source src="${URL.createObjectURL(file)}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <input type="text" name="video_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event">
+          <textarea name="video_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description"></textarea>
+        `;
+
+        videoSlides.appendChild(container);
+      });
+    }
+
+    function removeVideo(index) {
+      videoFiles.splice(index, 1);
+      videoEvents.splice(index, 1);
+      videoDescs.splice(index, 1);
+      showAllVideos();
+    }
+
+    // === FORM SUBMIT: agregamos eventos y descripciones ocultos
+    document.querySelector('form').addEventListener('submit', (e) => {
+      const form = e.target;
+
+      imageSlides.querySelectorAll('input[name^="image_event_"]').forEach((input, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `image_event_${idx}`;
+        hiddenInput.value = input.value;
+        form.appendChild(hiddenInput);
+      });
+
+      imageSlides.querySelectorAll('textarea[name^="image_desc_"]').forEach((textarea, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `image_desc_${idx}`;
+        hiddenInput.value = textarea.value;
+        form.appendChild(hiddenInput);
+      });
+
+      videoSlides.querySelectorAll('input[name^="video_event_"]').forEach((input, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `video_event_${idx}`;
+        hiddenInput.value = input.value;
+        form.appendChild(hiddenInput);
+      });
+
+      videoSlides.querySelectorAll('textarea[name^="video_desc_"]').forEach((textarea, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `video_desc_${idx}`;
+        hiddenInput.value = textarea.value;
+        form.appendChild(hiddenInput);
+      });
+    });
+</script>
+
+
+</body>
+
+</html>

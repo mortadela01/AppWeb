@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Delete Memory</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="container mx-auto mt-10 p-8 bg-white shadow-lg rounded-xl">
+        <h1 class="text-3xl text-center text-red-600 font-bold mb-4">Delete Memory</h1>
+        <p class="text-center mb-6">Are you sure you want to delete <strong>{{ user.name }}</strong>?</p>
+        
+        <div class="text-center">
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Delete</button>
+                <a href="{% url 'family_member_list' %}" class="ml-4 px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-lg">Cancel</a>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

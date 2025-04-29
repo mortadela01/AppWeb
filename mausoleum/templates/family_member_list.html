@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Memories List</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="max-w-6xl mx-auto mt-10 p-8 bg-white shadow-lg rounded-xl">
+        <h1 class="text-3xl text-center text-indigo-700 font-bold mb-6">Memories List</h1>
+        
+        <table class="min-w-full table-auto border-collapse border border-gray-300 mb-8">
+            <thead class="bg-indigo-600 text-white">
+                <tr>
+                    <th class="py-3 px-6 text-left">ID</th>
+                    <th class="py-3 px-6 text-left">Name</th>
+                    <th class="py-3 px-6 text-left">Date Born</th>
+                    <th class="py-3 px-6 text-left">Burial Place</th>
+                    <th class="py-3 px-6 text-left">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for miembro in miembros %}
+                <tr class="border-b hover:bg-gray-100">
+                    <td class="py-3 px-6">{{ miembro.id_deceased }}</td>
+                    <td class="py-3 px-6">{{ miembro.name }}</td>
+                    <td class="py-3 px-6">{{ miembro.date_born|date:"Y-m-d H:i" }}</td>
+                    <td class="py-3 px-6">{{ miembro.burial_place }}</td>
+                    <td class="py-3 px-6 space-x-2">
+                        <!-- Botón compartir (siempre visible) -->
+                        <a href="{% url 'share_family_member' miembro.id_deceased %}" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-4 rounded-lg text-sm">
+                            🔗 Share
+                        </a>
+                        {% if miembro.permits == 1 %}
+                        <!-- Solo si permits == 1 -->
+                        <a href="{% url 'edit_family_member' miembro.id_deceased %}" class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-4 rounded-lg text-sm">
+                            ✏ Edit
+                        </a>
+                        <a href="{% url 'delete_family_member' miembro.id_deceased %}" class="bg-red-600 hover:bg-red-700 text-white py-1 px-4 rounded-lg text-sm">
+                            🗑 Delete
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-6 text-gray-500">
+                        No family members found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="text-center">
+            <a href="{% url 'add_family_member' %}" class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg text-lg">
+                ➕ Add Memory
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

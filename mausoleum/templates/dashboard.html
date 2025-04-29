@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <!-- Header -->
+    <nav class="bg-indigo-600 p-4 flex justify-between items-center text-white">
+        <div class="text-xl font-bold">Logo</div>
+        <div class="flex gap-4">
+            <a href="{% url 'dashboard' %}"
+                class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">Home</a>
+            <a href="{% url 'add_family_member' %}"
+                class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">Add</a>
+            <a href="{% url 'family_member_list' %}"
+                class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">Memories</a>
+        </div>
+        <div class="flex items-center gap-4">
+            <span>{{ request.user.username }}</span>
+            <a href="{% url 'auth0_logout' %}"
+                class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Cerrar sesión</a>
+        </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="max-w-4xl mx-auto mt-10 p-6 bg-white rounded shadow">
+        <h1 class="text-2xl font-bold mb-2">Hello! {{ request.user.first_name|default:request.user.username }}</h1>
+        <p class="text-sm text-gray-500 mb-6">Last time logged: {{ request.user.last_login|default:"--/--/----" }}</p>
+        <p class="text-gray-700 mb-4">
+            On this page you can upload the information of your deceased relatives and manage it for later commemoration
+            in a Meta Quest application.
+        </p>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm mt-10 mb-2">
+        © 2024 Memoriales Familiares. All rights reserved.
+    </footer>
+</body>
+
+</html>
