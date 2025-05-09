@@ -17,7 +17,8 @@ urlpatterns = [
     path('delete/<int:id>/', views.delete_family_member, name='delete_family_member'),
     path('memories/', views.family_member_list, name='family_member_list'),
     path('share/<int:id>/', views.share_family_member, name='share_family_member'),
-
+    path('request-access/<int:id_deceased>/', views.request_access, name='request_access'),
+    path('approve-request/<int:request_id>/<str:action>/', views.approve_request, name='approve_request')
 ]
 
 if settings.DEBUG:

@@ -10,6 +10,9 @@ from django.utils import timezone
 from django.conf import settings
 import requests
 from urllib.parse import urlencode
+from django.core.mail import send_mail
+import re 
+
 
 # -------------------- FUNCIONES DE AUTENTICACION --------------------
 
@@ -91,6 +94,19 @@ def add_family_member(request):
         if form.is_valid():
             new_deceased = form.save()
 
+            # Guardar relaciones con otros fallecidos si se envían
+            related_ids = request.POST.getlist('related_deceased[]')
+            relationship_types = request.POST.getlist('relationship_type[]')
+
+            for related_id, rel_type in zip(related_ids, relationship_types):
+                if related_id and rel_type:
+                    with connection.cursor() as cursor:
+                        cursor.execute("""
+                            INSERT INTO TBL_RELATION (id_deceased, id_parent, relationship)
+                            VALUES (%s, %s, %s)
+                        """, [new_deceased.id_deceased, int(related_id), rel_type])
+
+
             # === SOLUCIÓN: insertar relación User-Deceased aquí ===
             user_session = request.session.get('user')
             if user_session:
@@ -166,18 +182,25 @@ def add_family_member(request):
     else:
         form = DeceasedForm()
 
-    return render(request, 'add_family_member.html', {'form': form})
+        all_deceased = Deceased.objects.all()
+    return render(request, 'add_family_member.html', {'form': form, 'all_deceased': all_deceased})
+
+import re  # Asegúrate de tener este import al inicio del archivo
 
 @login_required_auth0
 def family_member_list(request):
     user_session = request.session.get('user')
     miembros = []
-    permisos = {}
+    permisos = []
+    otros_deceased = []
+    notifications = []
+    unread_count = 0
 
     if user_session:
         user = User.objects.filter(email=user_session.get('email')).first()
         if user:
             with connection.cursor() as cursor:
+                # Familiares a los que sí tiene acceso
                 cursor.execute("""
                     SELECT d.*, ud.permits FROM TBL_DECEASED d
                     INNER JOIN TBL_USER_DECEASED ud ON d.id_deceased = ud.id_deceased
@@ -187,10 +210,51 @@ def family_member_list(request):
                 columns = [col[0] for col in cursor.description]
                 for row in rows:
                     miembro = dict(zip(columns, row))
-                    permisos[miembro['id_deceased']] = miembro['permits']
+                    permisos.append(miembro['permits'])
                     miembros.append(miembro)
 
-    return render(request, 'family_member_list.html', {'miembros': miembros, 'permisos': permisos})
+                # Familiares a los que NO tiene acceso
+                cursor.execute("""
+                    SELECT * FROM TBL_DECEASED
+                    WHERE id_deceased NOT IN (
+                        SELECT id_deceased FROM TBL_USER_DECEASED WHERE id_user = %s
+                    )
+                """, [user.id_user])
+                disponibles = cursor.fetchall()
+                disponibles_columns = [col[0] for col in cursor.description]
+                otros_deceased = [dict(zip(disponibles_columns, row)) for row in disponibles]
+
+                # Notificaciones como dicts
+                cursor.execute("""
+                    SELECT * FROM TBL_NOTIFICATION
+                    WHERE id_user = %s ORDER BY date_created DESC
+                """, [user.id_user])
+                notifications_rows = cursor.fetchall()
+                notifications_columns = [col[0] for col in cursor.description]
+                notifications = []
+                for row in notifications_rows:
+                    notif = dict(zip(notifications_columns, row))
+                    match = re.search(r"Request #(\d+)", notif["message"])
+                    if match:
+                        notif["request_id"] = match.group(1)
+                    notifications.append(notif)
+
+                # Contador de no leídas
+                cursor.execute("""
+                    SELECT COUNT(*) FROM TBL_NOTIFICATION
+                    WHERE id_user = %s AND is_read = 0
+                """, [user.id_user])
+                unread_count = cursor.fetchone()[0]
+
+    return render(request, 'family_member_list.html', {
+        'miembros': miembros,
+        'permisos': permisos,
+        'otros_deceased': otros_deceased,
+        'notifications': notifications,
+        'unread_count': unread_count
+    })
+
+
 
 @login_required_auth0
 def share_family_member(request, id):
@@ -226,4 +290,178 @@ def delete_family_member(request, id):
         miembro.delete()
         return redirect('family_member_list')
     return render(request, 'delete_family_member.html', {'miembro': miembro})
+
+
+# -------------------- FUNCIONALIDADES DE ACCESO --------------------
+
+    
+@login_required_auth0
+def request_access(request, id_deceased):
+    import re
+    user_session = request.session.get('user')
+    user = User.objects.filter(email=user_session['email']).first()
+
+    with connection.cursor() as cursor:
+        # Obtener dueño del fallecido
+        cursor.execute("""
+            SELECT id_user FROM TBL_USER_DECEASED WHERE id_deceased = %s AND permits = 1 LIMIT 1
+        """, [id_deceased])
+        creator_id = cursor.fetchone()[0]
+
+        # Insertar solicitud (solo una vez)
+        cursor.execute("""
+            INSERT INTO TBL_ACCESS_REQUEST (id_user_requester, id_deceased, date_requested)
+            VALUES (%s, %s, %s)
+        """, [user.id_user, id_deceased, timezone.now()])
+        request_id = cursor.lastrowid  # obtener el ID de la solicitud
+
+        # Insertar notificación con ID embebido
+        cursor.execute("""
+            INSERT INTO TBL_NOTIFICATION (id_user, message, date_created)
+            VALUES (%s, %s, %s)
+        """, [
+            creator_id,
+            f"{user.name} has requested access to a family memory. Request #{request_id}",
+            timezone.now()
+        ])
+
+    return redirect('family_member_list')
+
+@login_required_auth0
+def request_access(request, id_deceased):
+    user_session = request.session.get('user')
+    user = User.objects.filter(email=user_session['email']).first()
+
+    with connection.cursor() as cursor:
+        # Verificar si ya existe una solicitud pendiente
+        cursor.execute("""
+            SELECT COUNT(*) FROM TBL_ACCESS_REQUEST
+            WHERE id_user_requester = %s AND id_deceased = %s AND status = 'pending'
+        """, [user.id_user, id_deceased])
+        if cursor.fetchone()[0] > 0:
+            # Ya existe una solicitud pendiente, no duplicar
+            return redirect('family_member_list')
+
+        # Obtener dueño del fallecido
+        cursor.execute("""
+            SELECT id_user FROM TBL_USER_DECEASED 
+            WHERE id_deceased = %s AND permits = 1 
+            LIMIT 1
+        """, [id_deceased])
+        creator_id = cursor.fetchone()[0]
+
+        # Insertar solicitud
+        cursor.execute("""
+            INSERT INTO TBL_ACCESS_REQUEST (id_user_requester, id_deceased, date_requested)
+            VALUES (%s, %s, %s)
+        """, [user.id_user, id_deceased, timezone.now()])
+        request_id = cursor.lastrowid
+
+        # Insertar notificación con ID embebido
+        cursor.execute("""
+            INSERT INTO TBL_NOTIFICATION (id_user, message, date_created)
+            VALUES (%s, %s, %s)
+        """, [
+            creator_id,
+            f"{user.name} has requested access to a family memory. Request #{request_id}",
+            timezone.now()
+        ])
+
+    return redirect('family_member_list')
+
+@login_required_auth0
+def approve_request(request, request_id, action):
+    with connection.cursor() as cursor:
+        # Obtener quién pidió y sobre qué memoria
+        cursor.execute("""
+            SELECT id_user_requester, id_deceased 
+            FROM TBL_ACCESS_REQUEST 
+            WHERE id_request = %s
+        """, [request_id])
+        result = cursor.fetchone()
+
+        if result:
+            requester_id, deceased_id = result
+
+            # Actualizar estado de la solicitud
+            cursor.execute("""
+                UPDATE TBL_ACCESS_REQUEST
+                SET status = %s, date_resolved = %s
+                WHERE id_request = %s
+            """, [action, timezone.now(), request_id])
+
+            # Si fue aprobado, dar acceso
+            if action == 'approved':
+                cursor.execute("""
+                    INSERT INTO TBL_USER_DECEASED (id_user, id_deceased, date_relation, permits)
+                    VALUES (%s, %s, %s, %s)
+                """, [requester_id, deceased_id, timezone.now(), 1])
+
+                message = f"✅ Your access request to memory ID {deceased_id} was approved."
+            else:
+                message = f"❌ Your request to access memory ID {deceased_id} was rejected."
+
+            # Insertar notificación
+            cursor.execute("""
+                INSERT INTO TBL_NOTIFICATION (id_user, message, date_created)
+                VALUES (%s, %s, %s)
+            """, [requester_id, message, timezone.now()])
+
+    return redirect('view_requests')
+
+
+@login_required_auth0
+def notifications(request):
+    user_session = request.session.get('user')
+    user = User.objects.filter(email=user_session['email']).first()
+    notifications = []
+
+    if user:
+        with connection.cursor() as cursor:
+            # Marcar como leídas
+            cursor.execute("""
+                UPDATE TBL_NOTIFICATION
+                SET is_read = 1
+                WHERE id_user = %s AND is_read = 0
+            """, [user.id_user])
+
+            # Recuperar todas las notificaciones
+            cursor.execute("""
+                SELECT * FROM TBL_NOTIFICATION
+                WHERE id_user = %s
+                ORDER BY date_created DESC
+            """, [user.id_user])
+
+            notifications = cursor.fetchall()
+
+    return render(request, 'notifications.html', {
+        'notifications': notifications
+    })
+
+
+def send_email_to_creator(to_email, subject, message):
+    send_mail(
+        subject,
+        message,
+        'noreply@mausoleum.com',
+        [to_email],
+        fail_silently=False,
+    )
+
+@login_required_auth0
+def mark_notification_read(request, notification_id):
+    user_session = request.session.get('user')
+    user = User.objects.filter(email=user_session['email']).first()
+
+    if user:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                UPDATE TBL_NOTIFICATION
+                SET is_read = 1
+                WHERE id_notification = %s AND id_user = %s
+            """, [notification_id, user.id_user])
+
+    return redirect('family_member_list')
+
+
 
