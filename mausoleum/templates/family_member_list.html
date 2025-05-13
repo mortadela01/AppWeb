@@ -8,15 +8,80 @@
 </head>
 
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <!-- 🔔 Notifications -->
+    <div class="flex justify-end items-center px-8 py-4">
+        <div class="relative">
+            <button onclick="toggleNotifications()" class="focus:outline-none relative">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-700" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {% if unread_count > 0 %}
+                <span class="absolute top-0 right-0 bg-red-600 text-white text-xs px-1 rounded-full">
+                    {{ unread_count }}
+                </span>
+                {% endif %}
+            </button>
+            <div id="notificationDropdown"
+                class="absolute right-0 mt-2 w-80 bg-white text-black rounded shadow-lg hidden z-10">
+                <div class="p-2 border-b font-semibold text-sm bg-indigo-100">Notifications</div>
+                <ul class="max-h-60 overflow-y-auto text-sm">
+                    {% for notif in notifications %}
+                    <li class="p-2 hover:bg-gray-100 border-b">
+                        <p>{{ notif.message }}</p>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-xs text-gray-400">{{ notif.creation_date|date:"Y-m-d H:i" }}</span>
+                            {% if notif.is_read == 0 %}
+                            <form method="post"
+                                action="{% url 'handle_notification_action' notif.id_notification 'read' %}">
+                                {% csrf_token %}
+                                <button class="text-xs text-blue-600 hover:underline">Mark as read</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% if "Do you approve?" in notif.message %}
+                        <div class="mt-2 flex gap-2">
+                            <form method="post"
+                                action="{% url 'handle_notification_action' notif.id_notification 'accept' %}">
+                                {% csrf_token %}
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">✔
+                                    Accept</button>
+                            </form>
+                            <form method="post"
+                                action="{% url 'handle_notification_action' notif.id_notification 'decline' %}">
+                                {% csrf_token %}
+                                <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">✖
+                                    Decline</button>
+                            </form>
+                        </div>
+                        {% elif notif.request_id %}
+                        <div class="mt-2 flex gap-2">
+                            <a href="{% url 'approve_request' notif.request_id 'approved' %}"
+                                class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">Accept</a>
+                            <a href="{% url 'approve_request' notif.request_id 'rejected' %}"
+                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Reject</a>
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                    <li class="p-2 text-gray-500">No notifications</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-6xl mx-auto mt-10 p-8 bg-white shadow-lg rounded-xl">
         <h1 class="text-3xl text-center text-indigo-700 font-bold mb-6">Memories List</h1>
-        
+
         <table class="min-w-full table-auto border-collapse border border-gray-300 mb-8">
             <thead class="bg-indigo-600 text-white">
                 <tr>
                     <th class="py-3 px-6 text-left">ID</th>
                     <th class="py-3 px-6 text-left">Name</th>
-                    <th class="py-3 px-6 text-left">Date Born</th>
+                    <th class="py-3 px-6 text-left">Date Birth</th>
                     <th class="py-3 px-6 text-left">Burial Place</th>
                     <th class="py-3 px-6 text-left">Actions</th>
                 </tr>
@@ -26,40 +91,93 @@
                 <tr class="border-b hover:bg-gray-100">
                     <td class="py-3 px-6">{{ miembro.id_deceased }}</td>
                     <td class="py-3 px-6">{{ miembro.name }}</td>
-                    <td class="py-3 px-6">{{ miembro.date_born|date:"Y-m-d H:i" }}</td>
+                    <td class="py-3 px-6">{{ miembro.date_birth|date:"Y-m-d H:i" }}</td>
                     <td class="py-3 px-6">{{ miembro.burial_place }}</td>
                     <td class="py-3 px-6 space-x-2">
-                        <!-- Botón compartir (siempre visible) -->
-                        <a href="{% url 'share_family_member' miembro.id_deceased %}" class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-4 rounded-lg text-sm">
-                            🔗 Share
-                        </a>
-                        {% if miembro.permits == 1 %}
-                        <!-- Solo si permits == 1 -->
-                        <a href="{% url 'edit_family_member' miembro.id_deceased %}" class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-4 rounded-lg text-sm">
-                            ✏ Edit
-                        </a>
-                        <a href="{% url 'delete_family_member' miembro.id_deceased %}" class="bg-red-600 hover:bg-red-700 text-white py-1 px-4 rounded-lg text-sm">
-                            🗑 Delete
-                        </a>
+                        <a href="{% url 'share_family_member' miembro.id_deceased %}"
+                            class="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-4 rounded-lg text-sm">🔗
+                            Share</a>
+
+                        {% if miembro.has_permission == 1 or miembro.has_permission == 0 %}
+                        <a href="{% url 'edit_family_member' miembro.id_deceased %}"
+                            class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-4 rounded-lg text-sm">✏ Edit</a>
+                        {% endif %}
+
+                        {% if miembro.has_permission == 1 %}
+                        <a href="{% url 'delete_family_member' miembro.id_deceased %}"
+                            class="bg-red-600 hover:bg-red-700 text-white py-1 px-4 rounded-lg text-sm">🗑 Delete</a>
                         {% endif %}
                     </td>
+
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-6 text-gray-500">
-                        No family members found.
-                    </td>
+                    <td colspan="5" class="text-center py-6 text-gray-500">No family members found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        
+
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold text-indigo-700 mb-4">🔍 Search Other Memories</h2>
+            <input type="text" id="searchInput" placeholder="Type a name..."
+                class="w-full border px-4 py-2 rounded mb-4">
+            <ul id="suggestionList" class="bg-white border rounded shadow-md hidden max-h-60 overflow-y-auto"></ul>
+        </div>
+
         <div class="text-center">
-            <a href="{% url 'add_family_member' %}" class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg text-lg">
-                ➕ Add Memory
-            </a>
+            <a href="{% url 'add_family_member' %}"
+                class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg text-lg">➕ Add Memory</a>
         </div>
     </div>
+
+    <script>
+        function toggleNotifications() {
+            const dropdown = document.getElementById("notificationDropdown");
+            dropdown.classList.toggle("hidden");
+
+            // Añadimos un flag para indicar si se abrió
+            dropdown.setAttribute('data-open', !dropdown.classList.contains('hidden'));
+        }
+
+        document.addEventListener('click', function (event) {
+            const dropdown = document.getElementById("notificationDropdown");
+            const bellButton = event.target.closest("button");
+
+            // Si se hizo clic fuera del dropdown y fuera de la campana
+            if (!event.target.closest("#notificationDropdown") && !bellButton) {
+                dropdown.classList.add("hidden");
+            }
+        });
+
+        function filterDeceased() {
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            const suggestions = document.getElementById("suggestionList");
+            suggestions.innerHTML = '';
+
+            {% for d in otros_deceased %}
+            const name = "{{ d.name|lower }}";
+            if (name.includes(input) && input.length > 0 && suggestions.children.length < 5) {
+                const li = document.createElement('li');
+                li.className = "p-2 border-b hover:bg-gray-100 flex justify-between items-center";
+                li.innerHTML = `
+                        <span>{{ d.name }}</span>
+                        <form method="post" action="{% url 'request_access' d.id_deceased %}" class="ml-4">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white py-1 px-4 rounded text-sm">Request</button>
+                        </form>
+                    `;
+                suggestions.appendChild(li);
+            }
+            {% endfor %}
+
+            suggestions.classList.toggle("hidden", suggestions.children.length === 0);
+        }
+
+        document.getElementById("searchInput").addEventListener("keyup", filterDeceased);
+    </script>
+
+
 </body>
 
 </html>
