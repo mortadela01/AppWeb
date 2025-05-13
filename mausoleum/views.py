@@ -171,7 +171,8 @@ def family_member_list(request):
         if user:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT d.*, ud.has_permission FROM TBL_DECEASED d
+                    SELECT d.id_deceased, d.name, d.date_birth, d.date_death, d.burial_place, ud.has_permission 
+                    FROM TBL_DECEASED d
                     INNER JOIN TBL_USER_DECEASED ud ON d.id_deceased = ud.id_deceased
                     WHERE ud.id_user = %s
                 """, [user.id_user])

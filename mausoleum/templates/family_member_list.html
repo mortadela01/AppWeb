@@ -82,6 +82,7 @@
                     <th class="py-3 px-6 text-left">ID</th>
                     <th class="py-3 px-6 text-left">Name</th>
                     <th class="py-3 px-6 text-left">Date Birth</th>
+                    <th class="py-3 px-6 text-left">Date Death</th>  <!-- NUEVO -->
                     <th class="py-3 px-6 text-left">Burial Place</th>
                     <th class="py-3 px-6 text-left">Actions</th>
                 </tr>
@@ -91,7 +92,23 @@
                 <tr class="border-b hover:bg-gray-100">
                     <td class="py-3 px-6">{{ miembro.id_deceased }}</td>
                     <td class="py-3 px-6">{{ miembro.name }}</td>
-                    <td class="py-3 px-6">{{ miembro.date_birth|date:"Y-m-d H:i" }}</td>
+                    <td class="py-3 px-6">
+                    {% if miembro.date_birth %}
+                        {{ miembro.date_birth|date:"Y-m-d" }}
+                    {% else %}
+                        None
+                    {% endif %}
+                    </td>
+
+                    <td class="py-3 px-6">
+                    {% if miembro.date_death %}
+                        {{ miembro.date_death|date:"Y-m-d" }}
+                    {% else %}
+                        None
+                    {% endif %}
+                    </td>
+
+
                     <td class="py-3 px-6">{{ miembro.burial_place }}</td>
                     <td class="py-3 px-6 space-x-2">
                         <a href="{% url 'share_family_member' miembro.id_deceased %}"
@@ -112,7 +129,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-6 text-gray-500">No family members found.</td>
+                    <td colspan="6" class="text-center py-6 text-gray-500">No family members found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
