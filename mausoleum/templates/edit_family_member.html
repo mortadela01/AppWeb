@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Edit Family Member</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="max-w-4xl mx-auto bg-white shadow-md rounded-xl mt-10 p-8">
+        <h2 class="text-xl font-bold mb-6">Edit Family Member</h2>
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Campos básicos precargados -->
+            {{ form.as_p }}
+
+            <!-- Relaciones -->
+            <h3 class="text-lg font-bold mt-6">Relations</h3>
+            <div class="flex flex-col md:flex-row gap-4 items-end">
+                <div class="flex-1">
+                    <label class="block font-medium mb-1">Related Family Member</label>
+                    <input type="text" id="relatedInput" placeholder="Search or enter name"
+                        class="w-full border border-gray-300 rounded px-4 py-2" oninput="filterDeceasedList()"
+                        autocomplete="off" />
+                    <p id="errorName" class="text-red-500 text-sm mt-1 hidden">Please select a valid family member from
+                        the list.</p>
+                    <ul id="suggestionsList"
+                        class="absolute bg-white border border-gray-300 w-full max-h-40 overflow-y-auto rounded shadow z-10 hidden">
+                    </ul>
+                </div>
+                <div class="flex-1">
+                    <label class="block font-medium mb-1">Relationship</label>
+                    <select id="relationshipSelect" class="w-full border border-gray-300 rounded px-4 py-2">
+                        <option value="" disabled selected>Select</option>
+                        <option value="parent">Parent</option>
+                        <option value="child">Child</option>
+                        <option value="sibling">Sibling</option>
+                        <option value="spouse">Spouse</option>
+                    </select>
+                    <p id="errorRelation" class="text-red-500 text-sm mt-1 hidden">Please select a relationship.</p>
+                </div>
+                <button type="button" onclick="addRelation()"
+                    class="bg-indigo-600 text-white font-bold px-4 py-2 rounded h-10">Add Relation</button>
+            </div>
+
+            <!-- Lista de relaciones añadidas -->
+            <ul id="relationList" class="mt-4 list-disc pl-5 text-sm text-gray-700">
+                {% for rel in relaciones %}
+                <li data-id="{{ rel.id_parent }}" data-relationship="{{ rel.relationship }}">
+                    {{ rel.parent_name }} - {{ rel.relationship }}
+                    <button type="button" onclick="removeRelation(this, {{ rel.id_parent }})"
+                        class="ml-2 text-red-500 font-bold">&times;</button>
+                </li>
+                <input type="hidden" name="related_deceased[]" value="{{ rel.id_parent }}">
+                <input type="hidden" name="relationship_type[]" value="{{ rel.relationship }}">
+                {% endfor %}
+            </ul>
+
+
+            <!-- Imágenes actuales -->
+            <h3 class="text-lg font-bold mt-6">Current Images</h3>
+            <div id="imageList" class="space-y-4">
+                {% for img in imagenes %}
+                <div data-id="{{ img.id_metadata }}" class="relative border p-2 rounded">
+                    <img src="{{ img.image_link }}" alt="Image" class="h-24 object-contain mb-2" />
+                    <input type="text" name="existing_image_event_{{ forloop.counter0 }}" value="{{ img.event_title }}"
+                        placeholder="Event" class="w-full border rounded p-2 mb-1" />
+                    <textarea name="existing_image_desc_{{ forloop.counter0 }}" rows="2"
+                        class="w-full border rounded p-2" placeholder="Description">{{ img.description }}</textarea>
+                    <button type="button" onclick="removeExistingImage({{ img.id_metadata }})"
+                        class="absolute top-1 right-1 text-red-600 font-bold">&times;</button>
+                    <input type="hidden" name="existing_image_id[]" value="{{ img.id_metadata }}">
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Input dinámico de imágenes -->
+            <div id="imageInputContainer">
+                <label class="block font-medium mb-2 mt-6">Add Images</label>
+                <input type="file" name="images" id="imageInput" accept="image/*" class="mb-4" />
+            </div>
+            <button type="button" id="addImageButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+                Add another image
+            </button>
+            <div id="imageSlides" class="relative w-full mt-4"></div>
+
+            <!-- Videos actuales -->
+            <h3 class="text-lg font-bold mt-6">Current Videos</h3>
+            <div id="videoList" class="space-y-4">
+                {% for vid in videos %}
+                <div data-id="{{ vid.id_metadata }}" class="relative border p-2 rounded">
+                    <video controls class="h-24 mb-2 w-full">
+                        <source src="{{ vid.video_link }}" type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+                    <input type="text" name="existing_video_event_{{ forloop.counter0 }}" value="{{ vid.event_title }}"
+                        placeholder="Event" class="w-full border rounded p-2 mb-1" />
+                    <textarea name="existing_video_desc_{{ forloop.counter0 }}" rows="2"
+                        class="w-full border rounded p-2" placeholder="Description">{{ vid.description }}</textarea>
+                    <button type="button" onclick="removeExistingVideo({{ vid.id_metadata }})"
+                        class="absolute top-1 right-1 text-red-600 font-bold">&times;</button>
+                    <input type="hidden" name="existing_video_id[]" value="{{ vid.id_metadata }}">
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Input dinámico de videos -->
+            <div id="videoInputContainer">
+                <label class="block font-medium mb-2 mt-6">Add Videos</label>
+                <input type="file" name="videos" id="videoInput" accept="video/*" class="mb-4" />
+            </div>
+            <button type="button" id="addVideoButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+                Add another video
+            </button>
+            <div id="videoSlides" class="relative w-full mt-4"></div>
+
+            <!-- Submit -->
+            <div>
+                <button type="submit"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded mt-6">
+                    Update
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        feather.replace();
+        const imageSlides = document.getElementById("imageSlides");
+        const addImageButton = document.getElementById("addImageButton");
+        const imageInputContainer = document.getElementById("imageInputContainer");
+        const imageFiles = [];
+        // Autocompletado para nombres de fallecidos
+        const suggestionsList = document.getElementById("suggestionsList");
+        const relatedInput = document.getElementById("relatedInput");
+        let selectedDeceasedId = null;
+
+        document.getElementById("imageInput").addEventListener("change", handleImageUpload);
+        addImageButton.addEventListener("click", () => {
+            const newInput = document.createElement("input");
+            newInput.type = "file";
+            newInput.name = "images";
+            newInput.accept = "image/*";
+            newInput.className = "mb-4";
+            newInput.addEventListener("change", handleImageUpload);
+            imageInputContainer.appendChild(newInput);
+        });
+
+        function filterDeceasedList() {
+            const query = relatedInput.value.trim();
+            if (query.length === 0) {
+                suggestionsList.classList.add("hidden");
+                suggestionsList.innerHTML = "";
+                selectedDeceasedId = null;
+                return;
+            }
+
+            fetch(`/ajax/search_deceased?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    suggestionsList.innerHTML = "";
+                    if (data.results.length === 0) {
+                        suggestionsList.classList.add("hidden");
+                        return;
+                    }
+
+                    data.results.forEach(item => {
+                        const li = document.createElement("li");
+                        li.textContent = item.name;
+                        li.className = "px-4 py-2 cursor-pointer hover:bg-gray-100";
+                        li.onclick = () => {
+                            relatedInput.value = item.name;
+                            selectedDeceasedId = item.id;
+                            suggestionsList.classList.add("hidden");
+                        };
+                        suggestionsList.appendChild(li);
+                    });
+
+                    suggestionsList.classList.remove("hidden");
+                });
+        }
+
+        // Validación y agregar relación
+        function addRelation() {
+            const relation = document.getElementById("relationshipSelect").value;
+
+            const errorName = document.getElementById("errorName");
+            const errorRelation = document.getElementById("errorRelation");
+
+            errorName.classList.add("hidden");
+            errorRelation.classList.add("hidden");
+
+            if (!selectedDeceasedId) {
+                errorName.classList.remove("hidden");
+                return;
+            }
+
+            if (!relation) {
+                errorRelation.classList.remove("hidden");
+                return;
+            }
+
+            // Añadir a la lista
+            const list = document.getElementById("relationList");
+            const li = document.createElement("li");
+            li.dataset.id = selectedDeceasedId;
+            li.dataset.relationship = relation;
+            li.innerHTML = `
+                ${relatedInput.value} - ${relation}
+                <button type="button" onclick="removeRelation(this, ${selectedDeceasedId})" class="ml-2 text-red-500 font-bold">&times;</button>
+            `;
+            list.appendChild(li);
+
+            const form = document.querySelector('form');
+            const inputId = document.createElement('input');
+            inputId.type = 'hidden';
+            inputId.name = 'related_deceased[]';
+            inputId.value = selectedDeceasedId;
+
+            const inputRel = document.createElement('input');
+            inputRel.type = 'hidden';
+            inputRel.name = 'relationship_type[]';
+            inputRel.value = relation;
+
+            form.appendChild(inputId);
+            form.appendChild(inputRel);
+
+            // Reset
+            relatedInput.value = '';
+            selectedDeceasedId = null;
+            document.getElementById("relationshipSelect").selectedIndex = 0;
+            suggestionsList.classList.add("hidden");
+        }
+
+        function handleImageUpload(event) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => imageFiles.push(file));
+            showAllImages();
+        }
+
+        function showAllImages() {
+            const eventInputs = imageSlides.querySelectorAll('input[name^="image_event_"]');
+            const descInputs = imageSlides.querySelectorAll('textarea[name^="image_desc_"]');
+
+            eventInputs.forEach((input, idx) => imageFiles[idx] && (imageFiles[idx].event = input.value));
+            descInputs.forEach((input, idx) => imageFiles[idx] && (imageFiles[idx].desc = input.value));
+
+            imageSlides.innerHTML = "";
+
+            imageFiles.forEach((file, index) => {
+                const div = document.createElement("div");
+                div.className = "w-full flex flex-col items-center mb-4 relative";
+                div.innerHTML = `
+                    <button type="button" onclick="removeImage(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">&times;</button>
+                    <img src="${URL.createObjectURL(file)}" class="h-40 object-contain mb-2" />
+                    <input type="text" name="image_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event" value="${file.event || ''}">
+                    <textarea name="image_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description">${file.desc || ''}</textarea>
+                `;
+                imageSlides.appendChild(div);
+            });
+        }
+
+
+        function removeImage(index) {
+            imageFiles.splice(index, 1);
+            showAllImages();
+        }
+
+        const videoSlides = document.getElementById("videoSlides");
+        const addVideoButton = document.getElementById("addVideoButton");
+        const videoInputContainer = document.getElementById("videoInputContainer");
+        const videoFiles = [];
+
+        document.getElementById("videoInput").addEventListener("change", handleVideoUpload);
+        addVideoButton.addEventListener("click", () => {
+            const newInput = document.createElement("input");
+            newInput.type = "file";
+            newInput.name = "videos";
+            newInput.accept = "video/*";
+            newInput.className = "mb-4";
+            newInput.addEventListener("change", handleVideoUpload);
+            videoInputContainer.appendChild(newInput);
+        });
+
+        function handleVideoUpload(event) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => videoFiles.push(file));
+            showAllVideos();
+        }
+
+        function showAllVideos() {
+            const eventInputs = videoSlides.querySelectorAll('input[name^="video_event_"]');
+            const descInputs = videoSlides.querySelectorAll('textarea[name^="video_desc_"]');
+
+            eventInputs.forEach((input, idx) => videoFiles[idx] && (videoFiles[idx].event = input.value));
+            descInputs.forEach((input, idx) => videoFiles[idx] && (videoFiles[idx].desc = input.value));
+
+            videoSlides.innerHTML = "";
+
+            videoFiles.forEach((file, index) => {
+                const div = document.createElement("div");
+                div.className = "w-full flex flex-col items-center mb-4 relative";
+                div.innerHTML = `
+                    <button type="button" onclick="removeVideo(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">&times;</button>
+                    <video controls class="h-40 mb-2 w-full">
+                        <source src="${URL.createObjectURL(file)}" type="video/mp4">
+                    </video>
+                    <input type="text" name="video_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event" value="${file.event || ''}">
+                    <textarea name="video_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description">${file.desc || ''}</textarea>
+                `;
+                videoSlides.appendChild(div);
+            });
+        }
+
+
+        function removeVideo(index) {
+            videoFiles.splice(index, 1);
+            showAllVideos();
+        }
+
+        function removeExistingImage(id) {
+            const div = document.querySelector(`div[data-id='${id}']`);
+            if (div) div.remove();
+            const form = document.querySelector('form');
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'delete_image_ids[]';
+            input.value = id;
+            form.appendChild(input);
+        }
+
+        function removeExistingVideo(id) {
+            const div = document.querySelector(`div[data-id='${id}']`);
+            if (div) div.remove();
+            const form = document.querySelector('form');
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'delete_video_ids[]';
+            input.value = id;
+            form.appendChild(input);
+        }
+
+        function removeRelation(button, idParent) {
+            const li = button.closest('li');
+            if (li) li.remove();
+
+            // Eliminar también los campos ocultos de esa relación
+            const inputs = document.querySelectorAll(`input[name="related_deceased[]"]`);
+            const rels = document.querySelectorAll(`input[name="relationship_type[]"]`);
+
+            inputs.forEach((input, index) => {
+                if (parseInt(input.value) === idParent) {
+                    input.remove();
+                    if (rels[index]) rels[index].remove();
+                }
+            });
+
+            // Agregar input oculto para que el backend lo elimine
+            const form = document.querySelector('form');
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'deleted_relation_ids[]';
+            hiddenInput.value = idParent;
+            form.appendChild(hiddenInput);
+        }
+
+    </script>
+</body>
+
+</html>

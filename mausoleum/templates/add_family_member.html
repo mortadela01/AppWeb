@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Family Member</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+  <!-- Navbar -->
+  <nav class="bg-indigo-700 px-6 py-4 flex justify-between items-center text-white">
+    <div class="text-xl font-bold">Logo</div>
+    <div class="flex space-x-2">
+    <a href="{% url 'dashboard' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Home</a>
+    <a href="#" class="bg-white text-indigo-600 py-2 px-6 rounded-lg font-semibold">Add Family Member</a>
+    <a href="{% url 'family_member_list' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Family Members</a>
+    </div>
+    <div class="flex items-center gap-4 relative">
+      <!-- Notifications -->
+      <div class="relative">
+        <button onclick="toggleNotifications()" class="focus:outline-none relative">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {% if unread_count > 0 %}
+          <span
+            class="absolute top-0 right-0 bg-red-600 text-white text-xs px-1 rounded-full select-none">{{ unread_count }}</span>
+          {% endif %}
+        </button>
+        <div id="notificationDropdown"
+          class="absolute right-0 mt-2 w-80 bg-white text-black rounded shadow-lg hidden z-10 max-h-80 overflow-y-auto">
+          <div class="p-2 border-b font-semibold text-sm bg-indigo-100">Notifications</div>
+          <ul class="text-sm">
+            {% for notif in notifications %}
+            <li class="p-2 hover:bg-gray-100 border-b">
+              <p>{{ notif.message }}</p>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-xs text-gray-400">{{ notif.creation_date|date:"Y-m-d H:i" }}</span>
+                {% if notif.is_read == 0 %}
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'read' %}">
+                  {% csrf_token %}
+                  <button class="text-xs text-blue-600 hover:underline">Mark as read</button>
+                </form>
+                {% endif %}
+              </div>
+              {% if "Do you approve?" in notif.message %}
+              <div class="mt-2 flex gap-2">
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'accept' %}">
+                  {% csrf_token %}
+                  <button
+                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">✔ Accept</button>
+                </form>
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'decline' %}">
+                  {% csrf_token %}
+                  <button
+                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">✖ Decline</button>
+                </form>
+              </div>
+              {% elif notif.request_id %}
+              <div class="mt-2 flex gap-2">
+                <a href="{% url 'approve_request' notif.request_id 'approved' %}"
+                  class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">Accept</a>
+                <a href="{% url 'approve_request' notif.request_id 'rejected' %}"
+                  class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Reject</a>
+              </div>
+              {% endif %}
+            </li>
+            {% empty %}
+            <li class="p-2 text-gray-500">No notifications</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Usuario y Logout -->
+      <span>{{ request.user.username }}</span>
+      <a href="{% url 'auth0_logout' %}" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Form Card -->
+  <div class="max-w-4xl mx-auto bg-white shadow-md rounded-xl mt-10 p-8">
+    <h2 class="text-xl font-bold mb-6">Add Family Member</h2>
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Name -->
+      <div>
+        <label class="block font-medium mb-1">Name</label>
+        <input type="text" name="name" class="w-full border border-gray-300 rounded px-4 py-2" placeholder="Enter full name" required />
+      </div>
+
+      <!-- Dates -->
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Date of Birth</label>
+          <input type="date" name="date_birth" class="w-full border border-gray-300 rounded px-4 py-2" required />
+        </div>
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Date of Death</label>
+          <input type="date" name="date_death" class="w-full border border-gray-300 rounded px-4 py-2" />
+        </div>
+      </div>
+
+      <!-- Contenedor de Inputs de Imágenes -->
+<div id="imageInputContainer">
+  <label class="block font-medium mb-2">Images</label>
+  <input type="file" name="images" id="imageInput" accept="image/*" class="mb-4" />
+</div>
+
+<!-- Botón para Agregar Más Imágenes -->
+<button type="button" id="addImageButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+  Add another image
+</button>
+
+<!-- Aquí estarán los previews de cada imagen -->
+<div id="imageSlides" class="relative w-full mt-4"></div>
+
+
+      <!-- Contenedor de Inputs de Videos -->
+<div id="videoInputContainer">
+  <label class="block font-medium mb-2">Videos</label>
+  <input type="file" name="videos" id="videoInput" accept="video/*" class="mb-4" />
+</div>
+
+<!-- Botón para Agregar Más Videos -->
+<button type="button" id="addVideoButton" class="px-4 py-2 bg-blue-500 text-white rounded mb-6">
+  Add another video
+</button>
+
+<!-- Aquí estarán los previews de cada video -->
+<div id="videoSlides" class="relative w-full mt-4"></div>
+
+
+      <!-- Burial Place & Gender -->
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Burial Place</label>
+          <input type="text" name="burial_place" class="w-full border border-gray-300 rounded px-4 py-2" />
+        </div>
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Gender</label>
+          <select name="gender" class="w-full border border-gray-300 rounded px-4 py-2">
+            <option value="" disabled selected>Select</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="O">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Biography -->
+      <div>
+        <label class="block font-medium mb-1">Biography</label>
+        <textarea name="biography" rows="4" class="w-full border border-gray-300 rounded px-4 py-2" placeholder="Write a short biography..."></textarea>
+      </div>
+
+      <!-- Relations -->
+      <h3 class="text-lg font-bold mt-6">Relations</h3>
+      <div class="flex flex-col md:flex-row gap-4 items-end">
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Related Family Member</label>
+          <div class="relative">
+            <input type="text" id="relatedInput" placeholder="Search or enter name"
+              class="w-full border border-gray-300 rounded px-4 py-2" oninput="filterDeceasedList()" autocomplete="off">
+            <p id="errorName" class="text-red-500 text-sm mt-1 hidden">Please select a valid family member from the list.</p>
+            <ul id="suggestionsList"
+              class="absolute bg-white border border-gray-300 w-full max-h-40 overflow-y-auto rounded shadow z-10 hidden">
+            </ul>
+          </div>
+
+          <datalist id="deceasedList">
+            {% for d in all_deceased %}
+              <option value="{{ d.name }}" data-id="{{ d.id_deceased }}">
+            {% endfor %}
+          </datalist>
+        </div>
+
+        <div class="flex-1">
+          <label class="block font-medium mb-1">Relationship</label>
+          <select id="relationshipSelect" class="w-full border border-gray-300 rounded px-4 py-2">
+            <option value="" disabled selected>Select</option>
+            <option value="parent">Parent</option>
+            <option value="child">Child</option>
+            <option value="sibling">Sibling</option>
+            <option value="spouse">Spouse</option>
+          </select>
+          <p id="errorRelation" class="text-red-500 text-sm mt-1 hidden">Please select a relationship.</p>
+        </div>
+
+        <button type="button" onclick="addRelation()" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded h-10">Add Relation</button>
+      </div>
+
+      <!-- Lista de relaciones añadidas -->
+      <ul id="relationList" class="mt-4 list-disc pl-5 text-sm text-gray-700"></ul>
+
+
+      <!-- Submit -->
+      <div>
+        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded mt-6">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <footer class="bg-gray-900 text-center text-white text-sm py-4 mt-10">
+    © 2024 Memoriales Familiares. Todos los derechos reservados.
+  </footer>
+
+  <script>
+
+    const deceasedList = [
+      {% for d in all_deceased %}
+        { id: {{ d.id_deceased }}, name: "{{ d.name|escapejs }}" },
+      {% endfor %}
+    ];
+
+    function filterDeceasedList() {
+      const input = document.getElementById('relatedInput');
+      const filter = input.value.toLowerCase();
+      const suggestions = document.getElementById('suggestionsList');
+
+      suggestions.innerHTML = '';
+      suggestions.classList.add('hidden');
+
+      if (!filter) return;
+
+      const matches = deceasedList.filter(d => d.name.toLowerCase().includes(filter));
+
+      matches.forEach(d => {
+        const li = document.createElement('li');
+        li.textContent = d.name;
+        li.className = "px-4 py-2 hover:bg-gray-100 cursor-pointer";
+        li.onclick = () => {
+          input.value = d.name;
+          input.setAttribute('data-id', d.id);  // Guardamos el id como atributo
+          suggestions.innerHTML = '';
+          suggestions.classList.add('hidden');
+        };
+        suggestions.appendChild(li);
+      });
+
+      if (matches.length > 0) {
+        suggestions.classList.remove('hidden');
+      }
+    }
+
+
+
+
+
+
+
+
+    const deceasedMap = {
+      {% for d in all_deceased %}
+        "{{ d.name }}": {{ d.id_deceased }},
+      {% endfor %}
+    };
+
+    function addRelation() {
+      const input = document.getElementById('relatedInput');
+      const name = input.value;
+      const id = input.getAttribute('data-id');
+      const relation = document.getElementById('relationshipSelect').value;
+
+      // Ocultar errores previos
+      document.getElementById('errorName').classList.add('hidden');
+      document.getElementById('errorRelation').classList.add('hidden');
+
+      let hasError = false;
+
+      if (!id || !name.trim()) {
+        document.getElementById('errorName').classList.remove('hidden');
+        hasError = true;
+      }
+
+      if (!relation || relation === "Select") {
+        document.getElementById('errorRelation').classList.remove('hidden');
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      // Agregar visualmente
+      const li = document.createElement('li');
+      li.textContent = `${name} - ${relation}`;
+      document.getElementById('relationList').appendChild(li);
+
+      // Agregar inputs ocultos
+      const form = document.querySelector('form');
+
+      const inputId = document.createElement('input');
+      inputId.type = 'hidden';
+      inputId.name = 'related_deceased[]';
+      inputId.value = id;
+      form.appendChild(inputId);
+
+      const inputRel = document.createElement('input');
+      inputRel.type = 'hidden';
+      inputRel.name = 'relationship_type[]';
+      inputRel.value = relation;
+      form.appendChild(inputRel);
+
+      // Limpiar campos
+      input.value = '';
+      input.removeAttribute('data-id');
+      document.getElementById('relationshipSelect').selectedIndex = 0;
+      document.getElementById('suggestionsList').classList.add('hidden');
+    }
+
+    feather.replace();
+
+    // === IMÁGENES ===
+    let imageFiles = [];
+    let imageEvents = [];
+    let imageDescs = [];
+    const imageSlides = document.getElementById("imageSlides");
+    const imageInputContainer = document.getElementById('imageInputContainer');
+    const addImageButton = document.getElementById('addImageButton');
+
+    document.getElementById("imageInput").addEventListener("change", handleImageUpload);
+
+    addImageButton.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.name = 'images';
+      newInput.accept = 'image/*';
+      newInput.className = 'mb-4';
+      newInput.addEventListener('change', handleImageUpload);
+      imageInputContainer.appendChild(newInput);
+    });
+
+    function handleImageUpload(event) {
+      const files = Array.from(event.target.files);
+      files.forEach(file => {
+        imageFiles.push(file);
+        imageEvents.push("");
+        imageDescs.push("");
+      });
+      showAllImages();
+    }
+
+      function showAllImages() {
+        const eventInputs = imageSlides.querySelectorAll('input[name^="image_event_"]');
+        const descInputs = imageSlides.querySelectorAll('textarea[name^="image_desc_"]');
+
+        eventInputs.forEach((input, idx) => imageEvents[idx] = input.value);
+        descInputs.forEach((input, idx) => imageDescs[idx] = input.value);
+
+        imageSlides.innerHTML = "";
+
+        imageFiles.forEach((file, index) => {
+          const container = document.createElement('div');
+          container.className = 'w-full flex flex-col items-center mb-4 relative';
+
+          container.innerHTML = `
+            <button type="button" onclick="removeImage(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">×</button>
+            <img src="${URL.createObjectURL(file)}" class="h-40 object-contain mb-2" />
+            <input type="text" name="image_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event" value="${imageEvents[index] || ''}">
+            <textarea name="image_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description">${imageDescs[index] || ''}</textarea>
+          `;
+
+          imageSlides.appendChild(container);
+        });
+      }
+
+
+    function removeImage(index) {
+      imageFiles.splice(index, 1);
+      imageEvents.splice(index, 1);
+      imageDescs.splice(index, 1);
+      showAllImages();
+    }
+
+    // === VIDEOS ===
+    let videoFiles = [];
+    let videoEvents = [];
+    let videoDescs = [];
+    const videoSlides = document.getElementById("videoSlides");
+    const videoInputContainer = document.getElementById('videoInputContainer');
+    const addVideoButton = document.getElementById('addVideoButton');
+
+    document.getElementById("videoInput").addEventListener("change", handleVideoUpload);
+
+    addVideoButton.addEventListener('click', () => {
+      const newInput = document.createElement('input');
+      newInput.type = 'file';
+      newInput.name = 'videos';
+      newInput.accept = 'video/*';
+      newInput.className = 'mb-4';
+      newInput.addEventListener('change', handleVideoUpload);
+      videoInputContainer.appendChild(newInput);
+    });
+
+    function handleVideoUpload(event) {
+      const files = Array.from(event.target.files);
+      files.forEach(file => {
+        videoFiles.push(file);
+        videoEvents.push("");
+        videoDescs.push("");
+      });
+      showAllVideos();
+    }
+
+    function showAllVideos() {
+      const eventInputs = videoSlides.querySelectorAll('input[name^="video_event_"]');
+      const descInputs = videoSlides.querySelectorAll('textarea[name^="video_desc_"]');
+
+      eventInputs.forEach((input, idx) => videoEvents[idx] = input.value);
+      descInputs.forEach((input, idx) => videoDescs[idx] = input.value);
+
+      videoSlides.innerHTML = "";
+
+      videoFiles.forEach((file, index) => {
+        const container = document.createElement('div');
+        container.className = 'w-full flex flex-col items-center mb-4 relative';
+
+        container.innerHTML = `
+          <button type="button" onclick="removeVideo(${index})" class="absolute top-0 right-0 mt-2 mr-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">×</button>
+          <video controls class="h-40 mb-2">
+            <source src="${URL.createObjectURL(file)}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+          <input type="text" name="video_event_${index}" class="mb-2 w-full border rounded p-2" placeholder="Event" value="${videoEvents[index] || ''}">
+          <textarea name="video_desc_${index}" rows="2" class="w-full border rounded p-2" placeholder="Description">${videoDescs[index] || ''}</textarea>
+        `;
+
+        videoSlides.appendChild(container);
+      });
+    }
+
+
+    function removeVideo(index) {
+      videoFiles.splice(index, 1);
+      videoEvents.splice(index, 1);
+      videoDescs.splice(index, 1);
+      showAllVideos();
+    }
+
+    // === FORM SUBMIT: agregamos eventos y descripciones ocultos
+    document.querySelector('form').addEventListener('submit', (e) => {
+      const form = e.target;
+
+      imageSlides.querySelectorAll('input[name^="image_event_"]').forEach((input, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `image_event_${idx}`;
+        hiddenInput.value = input.value;
+        form.appendChild(hiddenInput);
+      });
+
+      imageSlides.querySelectorAll('textarea[name^="image_desc_"]').forEach((textarea, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `image_desc_${idx}`;
+        hiddenInput.value = textarea.value;
+        form.appendChild(hiddenInput);
+      });
+
+      videoSlides.querySelectorAll('input[name^="video_event_"]').forEach((input, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `video_event_${idx}`;
+        hiddenInput.value = input.value;
+        form.appendChild(hiddenInput);
+      });
+
+      videoSlides.querySelectorAll('textarea[name^="video_desc_"]').forEach((textarea, idx) => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = `video_desc_${idx}`;
+        hiddenInput.value = textarea.value;
+        form.appendChild(hiddenInput);
+      });
+    });
+
+    function toggleNotifications() {
+      const dropdown = document.getElementById("notificationDropdown");
+      dropdown.classList.toggle("hidden");
+      dropdown.setAttribute('data-open', !dropdown.classList.contains('hidden'));
+    }
+
+    document.addEventListener('click', function (event) {
+      const dropdown = document.getElementById("notificationDropdown");
+      const bellButton = event.target.closest("button");
+
+      if (!event.target.closest("#notificationDropdown") && !bellButton) {
+        dropdown.classList.add("hidden");
+      }
+    });
+</script>
+
+
+</body>
+
+</html>

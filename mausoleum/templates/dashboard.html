@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <!-- Header -->
+    <nav class="bg-indigo-700 px-6 py-4 flex justify-between items-center text-white">
+    <div class="text-xl font-bold">Logo</div>
+    <div class="flex space-x-2">
+    <a href="{% url 'dashboard' %}" class="bg-white text-indigo-600 py-2 px-6 rounded-lg font-semibold">Home</a>
+    <a href="{% url 'add_family_member' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Add Family Member</a>
+    <a href="{% url 'family_member_list' %}" class="bg-indigo-600 hover:bg-indigo-800 text-white py-2 px-6 rounded-lg">Family Members</a>
+    </div>
+    <div class="flex items-center gap-4 relative">
+        <!-- Notifications -->
+        <div class="relative">
+        <button onclick="toggleNotifications()" class="focus:outline-none relative">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {% if unread_count > 0 %}
+            <span
+            class="absolute top-0 right-0 bg-red-600 text-white text-xs px-1 rounded-full select-none">{{ unread_count }}</span>
+            {% endif %}
+        </button>
+        <div id="notificationDropdown"
+            class="absolute right-0 mt-2 w-80 bg-white text-black rounded shadow-lg hidden z-10 max-h-80 overflow-y-auto">
+            <div class="p-2 border-b font-semibold text-sm bg-indigo-100">Notifications</div>
+            <ul class="text-sm">
+            {% for notif in notifications %}
+            <li class="p-2 hover:bg-gray-100 border-b">
+                <p>{{ notif.message }}</p>
+                <div class="flex justify-between items-center mt-1">
+                <span class="text-xs text-gray-400">{{ notif.creation_date|date:"Y-m-d H:i" }}</span>
+                {% if notif.is_read == 0 %}
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'read' %}">
+                    {% csrf_token %}
+                    <button class="text-xs text-blue-600 hover:underline">Mark as read</button>
+                </form>
+                {% endif %}
+                </div>
+                {% if "Do you approve?" in notif.message %}
+                <div class="mt-2 flex gap-2">
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'accept' %}">
+                    {% csrf_token %}
+                    <button
+                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">✔ Accept</button>
+                </form>
+                <form method="post" action="{% url 'handle_notification_action' notif.id_notification 'decline' %}">
+                    {% csrf_token %}
+                    <button
+                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">✖ Decline</button>
+                </form>
+                </div>
+                {% elif notif.request_id %}
+                <div class="mt-2 flex gap-2">
+                <a href="{% url 'approve_request' notif.request_id 'approved' %}"
+                    class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">Accept</a>
+                <a href="{% url 'approve_request' notif.request_id 'rejected' %}"
+                    class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Reject</a>
+                </div>
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="p-2 text-gray-500">No notifications</li>
+            {% endfor %}
+            </ul>
+        </div>
+        </div>
+
+        <!-- Usuario y Logout -->
+        <span>{{ request.user.username }}</span>
+        <a href="{% url 'auth0_logout' %}" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Logout</a>
+    </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="max-w-4xl mx-auto mt-10 p-6 bg-white rounded shadow">
+        <h1 class="text-2xl font-bold mb-2">Hello! {{ request.user.first_name|default:request.user.username }}</h1>
+        <p class="text-sm text-gray-500 mb-6">Last time logged: {{ request.user.last_login|default:"--/--/----" }}</p>
+        <p class="text-gray-700 mb-4">
+            On this page you can upload the information of your deceased relatives and manage it for later commemoration
+            in a Meta Quest application.
+        </p>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm mt-10 mb-2">
+        © 2024 Memoriales Familiares. All rights reserved.
+    </footer>
+   
+    <script>
+        function toggleNotifications() {
+            const dropdown = document.getElementById("notificationDropdown");
+            dropdown.classList.toggle("hidden");
+
+            dropdown.setAttribute('data-open', !dropdown.classList.contains('hidden'));
+        }
+
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById("notificationDropdown");
+            const bellButton = event.target.closest("button");
+
+            if (!event.target.closest("#notificationDropdown") && !bellButton) {
+                dropdown.classList.add("hidden");
+            }
+        });
+    </script>
+</body>
+
+</html>
