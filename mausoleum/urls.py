@@ -5,9 +5,9 @@ from . import views
 
 urlpatterns = [
     # Authentication
-    path('', views.auth0_login, name='auth0_login'),
-    path('callback/', views.callback, name='callback'),
+    path('', views.auth0_login, name='auth0_login'),  # raíz para login (redirige a Auth0)
     path('login/', views.auth0_login, name='auth0_login'),
+    path('callback/', views.callback, name='callback'),
     path('logout/', views.auth0_logout, name='auth0_logout'),
 
     # Dashboard
@@ -21,7 +21,6 @@ urlpatterns = [
     path('share/<int:id>/', views.share_family_member, name='share_family_member'),
     path('ajax/search_deceased/', views.ajax_search_deceased, name='ajax_search_deceased'),
 
-
     # Access control
     path('request-access/<int:id_deceased>/', views.request_access, name='request_access'),
     path('approve-request/<int:request_id>/<str:action>/', views.approve_request, name='approve_request'),
@@ -30,7 +29,6 @@ urlpatterns = [
     path('notifications/', views.notifications, name='notifications'),
     path('notifications/read/<int:notification_id>/', views.mark_notification_read, name='mark_notification_read'),
     path('notification-action/<int:notification_id>/<str:action>/', views.handle_notification_action, name='handle_notification_action'),
-
 ]
 
 if settings.DEBUG:

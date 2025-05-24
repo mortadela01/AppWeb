@@ -1,0 +1,15 @@
+pip install virtualenv
+virtualenv venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\activate
+python.exe -m pip install --upgrade pip
+pip install python-dotenv
+pip install mysqlclient
+python -m pip install Pillow
+pip install requests
+pip install django
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver 8000
+
+pip freeze > requirements.txt
