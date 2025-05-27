@@ -238,6 +238,7 @@ class APIClient:
 
     # Family members list
     def get_family_members(self):
+        print(self._get_headers())  # Para depuración, borrar después
         url = f"{API_BASE_URL}/appweb/family-members/"
         resp = requests.get(url, headers=self._get_headers())
         return resp.json() if resp.ok else {}
@@ -246,6 +247,7 @@ class APIClient:
     def add_family_member(self, data):
         url = f"{API_BASE_URL}/appweb/family-members/add/"
         resp = requests.post(url, json=data, headers=self._get_headers())
+        print(self._get_headers()) #borrar
         return resp.json() if resp.ok else None
 
     # Share family member
@@ -307,6 +309,7 @@ class APIClient:
         url = f"{API_BASE_URL}/users/by-email/"
         params = {'email': email}
         resp = requests.get(url, headers=self._get_headers(), params=params)
+        print(self._get_headers()) #borrar
         if resp.ok:
             return resp.json()
         return {'error': 'Request failed'}

@@ -134,22 +134,26 @@ def add_family_member(request):
     api_client = APIClient(access_token=token)
 
     if request.method == 'POST':
-        # Copiar datos del formulario
         data = request.POST.dict()
-        # Para listas, extraerlas directamente desde POST
-        data['related_deceased'] = request.POST.getlist('related_deceased[]')
-        data['relationship_type'] = request.POST.getlist('relationship_type[]')
-        # Agrega campos adicionales que necesites
+        related = request.POST.getlist('related_deceased[]')
+        types = request.POST.getlist('relationship_type[]')
 
-        # Llamar API para crear fallecido
-        response = api_client.add_family_member(data)
+        # Filtrar solo los campos que el serializer espera
+        payload = {
+            key: data[key]
+            for key in ['name', 'date_birth', 'date_death', 'description', 'burial_place', 'visualization_state', 'visualization_code']
+            if key in data
+        }
+
+        # Añadir relaciones
+        payload['related_deceased'] = related
+        payload['relationship_type'] = types
+
+        response = api_client.add_family_member(payload)
 
         if response:
-            # Aquí falta manejar subida de multimedia (imagenes/videos) por separado
-            # Puedes redirigir a lista o a un mensaje éxito
             return redirect('family_member_list')
         else:
-            # Manejo de error
             return render(request, 'add_family_member.html', {'error': 'Error creating family member.'})
 
     else:
