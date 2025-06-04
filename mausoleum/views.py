@@ -138,31 +138,45 @@ def add_family_member(request):
         related = request.POST.getlist('related_deceased[]')
         types = request.POST.getlist('relationship_type[]')
 
-        # Filtrar solo los campos que el serializer espera
-        payload = {
-            key: data[key]
-            for key in ['name', 'date_birth', 'date_death', 'description', 'burial_place', 'visualization_state', 'visualization_code']
-            if key in data
+        data['related_deceased'] = related
+        data['relationship_type'] = types
+
+        files_to_send = []
+        for key, file_list in request.FILES.lists():
+            for f in file_list:
+                files_to_send.append((key, (f.name, f.read(), f.content_type)))
+
+        # Usar base_url desde instancia api_client (opción recomendada)
+        url = f"{api_client.base_url}/appweb/family-members/add/"
+
+        headers = {
+            'Authorization': f'Bearer {token}',
+            # No incluir Content-Type, requests lo maneja con multipart/form-data
         }
 
-        # Añadir relaciones
-        payload['related_deceased'] = related
-        payload['relationship_type'] = types
+        import requests
+        resp = requests.post(
+            url,
+            headers=headers,
+            data=data,
+            files=files_to_send,
+        )
 
-        response = api_client.add_family_member(payload)
-
-        if response:
+        if resp.status_code == 201:
             return redirect('family_member_list')
         else:
-            return render(request, 'add_family_member.html', {'error': 'Error creating family member.'})
+            try:
+                error_data = resp.json()
+            except Exception:
+                error_data = resp.text
+            return render(request, 'add_family_member.html', {'error': error_data})
 
     else:
-        # GET: obtener lista de fallecidos para autocompletar
         deceased_list = api_client.list_deceased()
+        return render(request, 'add_family_member.html', {'all_deceased': deceased_list})
 
-        return render(request, 'add_family_member.html', {
-            'all_deceased': deceased_list,
-        })
+
+
 
 
 # -------------------- FAMILY MEMBER LIST --------------------
@@ -181,12 +195,17 @@ def family_member_list(request):
     miembros = data.get('miembros', [])
     permisos = data.get('permisos', [])
     otros_deceased = data.get('otros_deceased', [])
+    notifications = data.get('notifications', [])        # <-- Agregado
+    unread_count = data.get('unread_count', 0)           # <-- Agregado
 
     return render(request, 'family_member_list.html', {
         'miembros': miembros,
         'permisos': permisos,
         'otros_deceased': otros_deceased,
+        'notifications': notifications,       # <-- Pasar al template
+        'unread_count': unread_count,         # <-- Pasar al template
     })
+
 
 
 # -------------------- SHARE / EDIT / DELETE --------------------
@@ -227,34 +246,56 @@ def edit_family_member(request, id):
     api_client = APIClient(access_token=token)
 
     if request.method == 'POST':
+        # 1) Construir data dict para texto, relaciones y eliminar imágenes
         data = request.POST.dict()
-        data['related_deceased'] = request.POST.getlist('related_deceased[]')
-        data['relationship_type'] = request.POST.getlist('relationship_type[]')
-        data['deleted_relation_ids'] = request.POST.getlist('deleted_relation_ids[]')
+        if 'gender' not in data:
+            data['gender'] = request.POST.get('gender', '')
 
+        data['related_deceased']      = request.POST.getlist('related_deceased[]')
+        data['relationship_type']     = request.POST.getlist('relationship_type[]')
+        data['deleted_relation_ids']  = request.POST.getlist('deleted_relation_ids[]')
+        data['delete_image_ids']      = request.POST.getlist('delete_image_ids[]')
+        data['existing_image_id']     = request.POST.getlist('existing_image_id[]')
+        data['existing_video_id']     = request.POST.getlist('existing_video_id[]')
+        data['delete_video_ids']      = request.POST.getlist('delete_video_ids[]')
+
+        # 2) Llamar a API para actualizar fallecido (texto, relaciones, imágenes)
         response = api_client.edit_family_member(id, data)
-        if response:
-            # Manejar multimedia en otro endpoint
+
+        if response and response.get("id_deceased"):
+            # 3) Ahora procesar los archivos de vídeo SI llegaron
+            #    En JavaScript normalmente enviarías FormData con archivos
+            #    Pero, como aquí estamos en la vista de Django, tomamos request.FILES
+            for idx, video_file in enumerate(request.FILES.getlist('videos')):
+                event_title = request.POST.get(f'video_event_{idx}', '')
+                description = request.POST.get(f'video_desc_{idx}', '')
+
+                files = { 'video_file': video_file }
+                payload = {
+                    'id_deceased': id,
+                    'event_title': event_title,
+                    'description': description,
+                }
+                api_client.upload_video(payload, files)
+
             return redirect('family_member_list')
+
         else:
-            return render(request, 'edit_family_member.html', {'error': 'Error editing family member.'})
+            error_msg = response.get('detail', 'Error editing family member.')
+            return render(request, 'edit_family_member.html', {'error': error_msg})
 
     else:
-        # GET para obtener datos
-        miembro = api_client.get_deceased(id)
-
-        # Obtener relaciones, imágenes y videos por separado (llamadas API específicas)
-        relaciones = api_client.list_relations()  # Filtrar client-side por fallecido
-        imagenes = api_client.list_images()       # Filtrar client-side
-        videos = api_client.list_videos()         # Filtrar client-side
-
-        # Para simplicidad puedes hacer llamadas específicas para ese fallecido si los endpoints existen
+        # GET: tal como indicamos, llamar a endpoints filtrados
+        miembro    = api_client.get_deceased(id)
+        relaciones = api_client.get_relations_by_deceased(id)
+        imagenes   = api_client.get_images_by_deceased(id)
+        videos     = api_client.get_videos_by_deceased(id)
 
         return render(request, 'edit_family_member.html', {
-            'miembro': miembro,
+            'miembro':    miembro,
             'relaciones': relaciones,
-            'imagenes': imagenes,
-            'videos': videos,
+            'imagenes':   imagenes,
+            'videos':     videos,
         })
 
 
@@ -278,184 +319,6 @@ def delete_family_member(request, id):
     else:
         miembro = api_client.get_deceased(id)
         return render(request, 'delete_family_member.html', {'miembro': miembro})
-
-
-# -------------------- REQUEST ACCESS & NOTIFICATIONS --------------------
-
-# @login_required_custom_auth0
-# def request_access(request, id_deceased):
-#     user_session = request.session.get('user')
-#     user = User.objects.filter(email=user_session['email']).first()
-#     with connection.cursor() as cursor:
-#         cursor.execute("""
-#             SELECT COUNT(*) FROM TBL_REQUEST
-#             WHERE id_issuer = %s AND id_deceased = %s AND request_status = 'pending'
-#         """, [user.id_user, id_deceased])
-#         if cursor.fetchone()[0] > 0:
-#             return redirect('family_member_list')
-
-#         cursor.execute("""
-#             SELECT id_user FROM TBL_USER_DECEASED
-#             WHERE id_deceased = %s AND has_permission = 1 LIMIT 1
-#         """, [id_deceased])
-#         creator_id = cursor.fetchone()[0]
-
-#         cursor.execute("""
-#             INSERT INTO TBL_REQUEST (id_issuer, id_receiver, id_deceased, creation_date, request_type, request_status)
-#             VALUES (%s, %s, %s, %s, %s, %s)
-#         """, [user.id_user, creator_id, id_deceased, timezone.now(), 'view', 'pending'])
-#         request_id = cursor.lastrowid
-
-#         cursor.execute("""
-#             INSERT INTO TBL_NOTIFICATION (id_sender, id_receiver, message, creation_date)
-#             VALUES (%s, %s, %s, %s)
-#         """, [user.id_user, creator_id, f"{user.name} has requested access. Request #{request_id}", timezone.now()])
-#     return redirect('family_member_list')
-
-# @login_required_custom_auth0
-# def approve_request(request, request_id, action):
-#     with connection.cursor() as cursor:
-#         cursor.execute("""
-#             SELECT id_issuer, id_deceased FROM TBL_REQUEST WHERE id_request = %s
-#         """, [request_id])
-#         requester_id, deceased_id = cursor.fetchone()
-
-#         cursor.execute("""
-#             UPDATE TBL_REQUEST SET request_status = %s WHERE id_request = %s
-#         """, [action, request_id])
-
-#         if action == 'approved':
-#             cursor.execute("""
-#                 INSERT INTO TBL_USER_DECEASED (id_user, id_deceased, date_relation, has_permission)
-#                 VALUES (%s, %s, %s, %s)
-#             """, [requester_id, deceased_id, timezone.now(), 1])
-#             message = f"✅ Your request to access memory ID {deceased_id} was approved."
-#         else:
-#             message = f"❌ Your request to access memory ID {deceased_id} was rejected."
-
-#         cursor.execute("""
-#             INSERT INTO TBL_NOTIFICATION (id_sender, id_receiver, message, creation_date)
-#             VALUES (%s, %s, %s, %s)
-#         """, [0, requester_id, message, timezone.now()])
-#     return redirect('view_requests')
-
-# @login_required_custom_auth0
-# def notifications(request):
-#     user_session = request.session.get('user')
-#     user = User.objects.filter(email=user_session['email']).first()
-#     notifications = []
-#     if user:
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 UPDATE TBL_NOTIFICATION SET is_read = 1 WHERE id_receiver = %s
-#             """, [user.id_user])
-#             cursor.execute("""
-#                 SELECT * FROM TBL_NOTIFICATION WHERE id_receiver = %s ORDER BY creation_date DESC
-#             """, [user.id_user])
-#             notifications = cursor.fetchall()
-#     return render(request, 'notifications.html', {'notifications': notifications})
-
-# @login_required_custom_auth0
-# def mark_notification_read(request, notification_id):
-#     user_session = request.session.get('user')
-#     user = User.objects.filter(email=user_session['email']).first()
-#     if user:
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 UPDATE TBL_NOTIFICATION SET is_read = 1 WHERE id_notification = %s AND id_receiver = %s
-#             """, [notification_id, user.id_user])
-#     return redirect('family_member_list')
-
-# @login_required_custom_auth0
-# def handle_notification_action(request, notification_id, action):
-#     user_session = request.session.get('user')
-#     current_user = User.objects.filter(email=user_session['email']).first()
-
-#     if request.method == 'POST' and current_user:
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 SELECT id_sender, message FROM TBL_NOTIFICATION
-#                 WHERE id_notification = %s AND id_receiver = %s
-#             """, [notification_id, current_user.id_user])
-#             notif = cursor.fetchone()
-
-#             if notif:
-#                 sender_id, message = notif
-#                 match = re.search(r"memory ID (\d+)", message)
-
-#                 if match:
-#                     id_deceased = int(match.group(1))
-
-#                     if action == 'accept':
-#                         cursor.execute("""
-#                             INSERT IGNORE INTO TBL_USER_DECEASED (id_user, id_deceased, date_relation, has_permission)
-#                             VALUES (%s, %s, %s, %s)
-#                         """, [current_user.id_user, id_deceased, timezone.now(), 0])
-#                     # Ya sea accept, decline o read: marcar como leída
-#                 cursor.execute("""
-#                     UPDATE TBL_NOTIFICATION SET is_read = 1 WHERE id_notification = %s
-#                 """, [notification_id])
-#                 connection.commit()  # <-- AÑADE ESTA LÍNEA
-
-#     return redirect('family_member_list')
-
-
-# @login_required_custom_auth0
-# def approve_request(request, request_id, action):
-#     user_session = request.session.get('user')
-#     approver = User.objects.filter(email=user_session['email']).first()
-
-#     with connection.cursor() as cursor:
-#         cursor.execute("""
-#             SELECT id_issuer, id_deceased FROM TBL_REQUEST WHERE id_request = %s
-#         """, [request_id])
-#         requester_id, deceased_id = cursor.fetchone()
-
-#         cursor.execute("""
-#             UPDATE TBL_REQUEST SET request_status = %s WHERE id_request = %s
-#         """, [action, request_id])
-
-#         if action == 'approved':
-#             # Primero borramos si ya existe (prevención de duplicados)
-#             cursor.execute("""
-#                 DELETE FROM TBL_USER_DECEASED WHERE id_user = %s AND id_deceased = %s
-#             """, [requester_id, deceased_id])
-
-#             cursor.execute("""
-#                 INSERT INTO TBL_USER_DECEASED (id_user, id_deceased, date_relation, has_permission)
-#                 VALUES (%s, %s, %s, %s)
-#             """, [requester_id, deceased_id, timezone.now(), 0])
-
-#             message = f"✅ Your request to access memory ID {deceased_id} was approved."
-#         else:
-#             message = f"❌ Your request to access memory ID {deceased_id} was rejected."
-
-#         cursor.execute("""
-#             INSERT INTO TBL_NOTIFICATION (id_sender, id_receiver, message, creation_date, is_read)
-#             VALUES (%s, %s, %s, %s, %s)
-#         """, [approver.id_user, requester_id, message, timezone.now(), 0])
-
-#     return redirect('family_member_list')
-
-
-# @require_GET
-# def ajax_search_deceased(request):
-#     query = request.GET.get('q', '').strip()
-#     results = []
-#     if query:
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 SELECT id_deceased, name FROM TBL_DECEASED
-#                 WHERE LOWER(name) LIKE %s
-#                 LIMIT 10
-#             """, [f"%{query.lower()}%"])
-#             rows = cursor.fetchall()
-#             for row in rows:
-#                 results.append({
-#                     'id': row[0],
-#                     'name': row[1]
-#                 })
-#     return JsonResponse({'results': results})
 
 @login_required_custom
 @csrf_exempt
@@ -486,9 +349,9 @@ def approve_request(request, request_id, action):
 
     if request.method == 'POST':
         resp = api_client.approve_request(request_id, action)
-        return redirect('view_requests')
+        return redirect('family_member_list')
     else:
-        return redirect('view_requests')
+        return redirect('family_member_list')
 
 
 @login_required_custom

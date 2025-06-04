@@ -3,19 +3,11 @@ import requests
 API_BASE_URL = "http://localhost:8080/api"  # Cambiar a la URL real donde corre AppServer
 
 class APIClient:
-    # def __init__(self, access_token=None):
-    #     self.access_token = access_token
-
-    # def _get_headers(self):
-    #     headers = {
-    #         "Content-Type": "application/json",
-    #     }
-    #     if self.access_token:
-    #         headers["Authorization"] = f"Bearer {self.access_token}"
-    #     return headers
 
     def __init__(self, access_token=None):
         self.access_token = access_token  # Este token debe venir del flujo de login de appWeb (Auth0)
+        self.base_url = API_BASE_URL  # <--- aquí la defines como atributo de instancia
+
 
     def set_access_token(self, token):
         self.access_token = token
@@ -282,7 +274,7 @@ class APIClient:
 
     # Notifications list
     def get_notifications(self):
-        url = f"{API_BASE_URL}/appweb/notifications/"
+        url = f"{API_BASE_URL}/notifications/"
         resp = requests.get(url, headers=self._get_headers())
         return resp.json() if resp.ok else []
 

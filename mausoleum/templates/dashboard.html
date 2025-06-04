@@ -61,10 +61,15 @@
                 </div>
                 {% elif notif.request_id %}
                 <div class="mt-2 flex gap-2">
-                <a href="{% url 'approve_request' notif.request_id 'approved' %}"
-                    class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">Accept</a>
-                <a href="{% url 'approve_request' notif.request_id 'rejected' %}"
-                    class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">Reject</a>
+                    <form method="post" action="{% url 'approve_request' notif.request_id 'approved' %}">
+                        {% csrf_token %}
+                        <button class="bg-green-500 ...">Accept</button>
+                    </form>
+                    <form method="post" action="{% url 'approve_request' notif.request_id 'rejected' %}">
+                        {% csrf_token %}
+                        <button class="bg-red-500 ...">Reject</button>
+                    </form>
+                    
                 </div>
                 {% endif %}
             </li>
