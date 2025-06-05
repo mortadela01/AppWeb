@@ -106,7 +106,7 @@
 
 
             <!-- Imágenes actuales -->
-            <h3 class="text-lg font-bold mt-6">Current Images</h3>
+            <!-- <h3 class="text-lg font-bold mt-6">Current Images</h3>
             <div id="imageList" class="space-y-4">
                 {% for img in imagenes %}
                 <div data-id="{{ img.id_metadata }}" class="relative border p-2 rounded">
@@ -120,6 +120,28 @@
                     <input type="hidden" name="existing_image_id[]" value="{{ img.id_metadata }}">
                 </div>
                 {% endfor %}
+            </div> -->
+
+
+            <h3 class="text-lg font-bold mt-6">Current Images</h3>
+            <div id="imageList" class="space-y-4">
+                {% for img in imagenes %}
+                <div data-id="{{ img.id_metadata }}" class="relative border p-2 rounded">
+                    <!-- <img src="{{ img.image_link }}" alt="Image" class="h-24 object-contain mb-2" /> -->
+                    <img src="{{ img.image_link }}" 
+                        onerror="this.style.display='none'" 
+                        alt="Image" 
+                        class="h-24 object-contain mb-2" />
+                    <input type="text" name="existing_image_event_{{ forloop.counter0 }}" value="{{ img.event_title }}"
+                        placeholder="Event" class="w-full border rounded p-2 mb-1" />
+                    <textarea name="existing_image_desc_{{ forloop.counter0 }}" rows="2" class="w-full border rounded p-2"
+                            placeholder="Description">{{ img.description }}</textarea>
+                    <button type="button" onclick="removeExistingImage({{ img.id_image }})"
+                            class="absolute top-1 right-1 text-red-600 font-bold">&times;</button>
+                    <input type="hidden" name="existing_image_id[]" value="{{ img.id_image }}">
+                </div>
+                {% endfor %}
+
             </div>
 
             <!-- Input dinámico de imágenes -->
@@ -133,7 +155,7 @@
             <div id="imageSlides" class="relative w-full mt-4"></div>
 
             <!-- Videos actuales -->
-            <h3 class="text-lg font-bold mt-6">Current Videos</h3>
+            <!-- <h3 class="text-lg font-bold mt-6">Current Videos</h3>
             <div id="videoList" class="space-y-4">
                 {% for vid in videos %}
                 <div data-id="{{ vid.id_metadata }}" class="relative border p-2 rounded">
@@ -150,7 +172,28 @@
                     <input type="hidden" name="existing_video_id[]" value="{{ vid.id_metadata }}">
                 </div>
                 {% endfor %}
+            </div> -->
+
+            <h3 class="text-lg font-bold mt-6">Current Videos</h3>
+            <div id="videoList" class="space-y-4">
+            {% for vid in videos %}
+            <div data-id="{{ vid.id_metadata }}" class="relative border p-2 rounded">
+                <video controls class="h-24 mb-2 w-full">
+                    <source src="{{ vid.video_link }}" type="video/mp4" />
+                    Your browser does not support the video tag.
+                </video>
+                <input type="text" name="existing_video_event_{{ forloop.counter0 }}" value="{{ vid.event_title }}"
+                    placeholder="Event" class="w-full border rounded p-2 mb-1" />
+                <textarea name="existing_video_desc_{{ forloop.counter0 }}" rows="2" class="w-full border rounded p-2"
+                        placeholder="Description">{{ vid.description }}</textarea>
+                <button type="button" onclick="removeExistingVideo({{ vid.id_video }})"
+                        class="absolute top-1 right-1 text-red-600 font-bold">&times;</button>
+                <input type="hidden" name="existing_video_id[]" value="{{ vid.id_video }}">
             </div>
+            {% endfor %}
+
+            </div>
+
 
             <!-- Input dinámico de videos -->
             <div id="videoInputContainer">
@@ -193,6 +236,15 @@
             newInput.className = "mb-4";
             newInput.addEventListener("change", handleImageUpload);
             imageInputContainer.appendChild(newInput);
+        });
+
+
+        document.getElementById('edit-form').addEventListener('submit', function(event) {
+            const imageIds = [...document.querySelectorAll('input[name="existing_image_id[]"]')].map(el => el.value);
+            const videoIds = [...document.querySelectorAll('input[name="existing_video_id[]"]')].map(el => el.value);
+
+            console.log("Image IDs to update:", imageIds);
+            console.log("Video IDs to update:", videoIds);
         });
 
         function filterDeceasedList() {
@@ -388,6 +440,7 @@
             input.value = id;
             form.appendChild(input);
         }
+
 
         function removeRelation(button, idParent) {
             const li = button.closest('li');

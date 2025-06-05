@@ -235,6 +235,159 @@ def share_family_member(request, id):
     else:
         return render(request, 'share_family_member.html')
 
+# @login_required_custom
+# # === AppServer: views.py ===
+
+# class EditFamilyMemberView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+#     @transaction.atomic
+#     def put(self, request, id):
+#         miembro = get_object_or_404(Deceased, id_deceased=id)
+#         user = request.user
+
+#         # 2) Verificar permiso en TBL_USER_DECEASED
+#         with connection.cursor() as cursor:
+#             cursor.execute("""
+#                 SELECT has_permission 
+#                 FROM TBL_USER_DECEASED
+#                 WHERE id_user = %s AND id_deceased = %s
+#             """, [user.id_user, id])
+#             if not cursor.fetchone():
+#                 return Response({"detail": "No permission to edit this deceased."},
+#                                 status=status.HTTP_403_FORBIDDEN)
+
+#         # 3) Actualizar campos principales con el serializer
+#         serializer = DeceasedSerializer(miembro, data=request.data, partial=True)
+#         if not serializer.is_valid():
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         serializer.save()
+
+#         # 4) Manejo de relaciones en TBL_RELATION
+#         if hasattr(request.data, 'getlist'):
+#             related_ids = request.data.getlist('related_deceased[]')
+#             relationship_types = request.data.getlist('relationship_type[]')
+#             deleted_relation_ids = request.data.getlist('deleted_relation_ids[]')
+#         else:
+#             related_ids = request.data.get('related_deceased', [])
+#             relationship_types = request.data.get('relationship_type', [])
+#             deleted_relation_ids = request.data.get('deleted_relation_ids', [])
+
+#         with connection.cursor() as cursor:
+#             for del_id in deleted_relation_ids:
+#                 cursor.execute("""
+#                     DELETE FROM TBL_RELATION
+#                     WHERE id_deceased = %s AND id_parent = %s
+#                 """, [id, del_id])
+
+#             cursor.execute("SELECT id_parent FROM TBL_RELATION WHERE id_deceased = %s", [id])
+#             existing_ids = set(row[0] for row in cursor.fetchall())
+#             for rid, rtype in zip(related_ids, relationship_types):
+#                 if rid and rtype and int(rid) not in existing_ids:
+#                     cursor.execute("""
+#                         INSERT INTO TBL_RELATION (id_deceased, id_parent, relationship)
+#                         VALUES (%s, %s, %s)
+#                     """, [id, int(rid), rtype])
+
+#         # 5) Manejo de imágenes
+#         if hasattr(request.data, 'getlist'):
+#             delete_image_ids = request.data.getlist('delete_image_ids[]')
+#         else:
+#             delete_image_ids = request.data.get('delete_image_ids', [])
+
+#         existing_image_ids = (
+#             request.data.get('existing_image_id')
+#             or request.data.get('existing_image_id[]')
+#             or []
+#         )
+
+#         with connection.cursor() as cursor:
+#             # 5.1) Eliminar imágenes marcadas
+#             for del_id in delete_image_ids:
+#                 cursor.execute("DELETE FROM TBL_DECEASED_IMAGE WHERE id_metadata = %s", [del_id])
+#                 cursor.execute("DELETE FROM TBL_IMAGE WHERE id_image = %s", [del_id])
+
+#             # 5.2) Actualizar imágenes existentes
+#             for idx, img_id in enumerate(existing_image_ids):
+#                 events = request.data.get('existing_image_event') or request.data.get('existing_image_event[]') or []
+#                 descs  = request.data.get('existing_image_desc')  or request.data.get('existing_image_desc[]')  or []
+#                 event = events[idx] if idx < len(events) else ''
+#                 desc  = descs[idx]  if idx < len(descs)  else ''
+#                 cursor.execute("""
+#                     UPDATE TBL_IMAGE
+#                     SET event_title = %s, description = %s
+#                     WHERE id_image = %s
+#                 """, [event, desc, img_id])
+
+#             # 5.3) Guardar nuevas imágenes
+#             fs_imagenes = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'uploads', 'images'))
+#             for idx, image_file in enumerate(request.FILES.getlist('images')):
+#                 filename = fs_imagenes.save(image_file.name, image_file)
+#                 uploaded_url = fs_imagenes.url(filename)
+#                 event = request.data.get(f'image_event_{idx}', '')
+#                 desc  = request.data.get(f'image_desc_{idx}', '')
+
+#                 cursor.execute("INSERT INTO TBL_IMAGE_METADATA (date_created, coordinates) VALUES (%s, %s)",
+#                                [datetime.now(), ""])
+#                 metadata_id = cursor.lastrowid
+
+#                 cursor.execute("INSERT INTO TBL_DECEASED_IMAGE (id_deceased, id_metadata, image_link) VALUES (%s, %s, %s)",
+#                                [id, metadata_id, uploaded_url])
+#                 cursor.execute("INSERT INTO TBL_IMAGE (id_image, image_link, event_title, description) VALUES (%s, %s, %s, %s)",
+#                                [metadata_id, uploaded_url, event, desc])
+
+#         # 6) Manejo de vídeos
+#         if hasattr(request.data, 'getlist'):
+#             delete_video_ids = request.data.getlist('delete_video_ids[]')
+#         else:
+#             delete_video_ids = request.data.get('delete_video_ids', [])
+
+#         existing_video_ids = (
+#             request.data.get('existing_video_id')
+#             or request.data.get('existing_video_id[]')
+#             or []
+#         )
+
+#         with connection.cursor() as cursor:
+#             # 6.1) Eliminar vídeos marcados
+#             for del_id in delete_video_ids:
+#                 cursor.execute("DELETE FROM TBL_DECEASED_VIDEO WHERE id_metadata = %s", [del_id])
+#                 cursor.execute("DELETE FROM TBL_VIDEO WHERE id_video = %s", [del_id])
+
+#             # 6.2) Actualizar vídeos existentes
+#             for idx, vid_id in enumerate(existing_video_ids):
+#                 events = request.data.get('existing_video_event') or request.data.get('existing_video_event[]') or []
+#                 descs  = request.data.get('existing_video_desc')  or request.data.get('existing_video_desc[]')  or []
+#                 event = events[idx] if idx < len(events) else ''
+#                 desc  = descs[idx]  if idx < len(descs) else ''
+#                 cursor.execute("""
+#                     UPDATE TBL_VIDEO
+#                     SET event_title = %s, description = %s
+#                     WHERE id_video = %s
+#                 """, [event, desc, vid_id])
+
+#             # 6.3) Guardar nuevos vídeos
+#             fs_videos = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'uploads', 'videos'))
+#             for idx, video_file in enumerate(request.FILES.getlist('videos')):
+#                 filename = fs_videos.save(video_file.name, video_file)
+#                 uploaded_url = fs_videos.url(filename)
+#                 event = request.data.get(f'video_event_{idx}', '')
+#                 desc  = request.data.get(f'video_desc_{idx}', '')
+
+#                 cursor.execute("INSERT INTO TBL_VIDEO_METADATA (date_created, coordinates) VALUES (%s, %s)",
+#                                [datetime.now(), ""])
+#                 metadata_id = cursor.lastrowid
+
+#                 cursor.execute("INSERT INTO TBL_DECEASED_VIDEO (id_deceased, id_metadata, video_link) VALUES (%s, %s, %s)",
+#                                [id, metadata_id, uploaded_url])
+#                 cursor.execute("INSERT INTO TBL_VIDEO (id_video, video_link, event_title, description) VALUES (%s, %s, %s, %s)",
+#                                [metadata_id, uploaded_url, event, desc])
+
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# mausoleum/views.py  (AppWeb)
 @login_required_custom
 @csrf_exempt
 def edit_family_member(request, id):
@@ -246,59 +399,116 @@ def edit_family_member(request, id):
     api_client = APIClient(access_token=token)
 
     if request.method == 'POST':
-        # 1) Construir data dict para texto, relaciones y eliminar imágenes
-        data = request.POST.dict()
-        if 'gender' not in data:
-            data['gender'] = request.POST.get('gender', '')
+        raw = request.POST
+        data = {}
 
-        data['related_deceased']      = request.POST.getlist('related_deceased[]')
-        data['relationship_type']     = request.POST.getlist('relationship_type[]')
-        data['deleted_relation_ids']  = request.POST.getlist('deleted_relation_ids[]')
-        data['delete_image_ids']      = request.POST.getlist('delete_image_ids[]')
-        data['existing_image_id']     = request.POST.getlist('existing_image_id[]')
-        data['existing_video_id']     = request.POST.getlist('existing_video_id[]')
-        data['delete_video_ids']      = request.POST.getlist('delete_video_ids[]')
+        # Campos principales
+        if raw.get('name', '').strip():
+            data['name'] = raw.get('name').strip()
+        if raw.get('date_birth', '').strip():
+            data['date_birth'] = raw.get('date_birth').strip()
+        if raw.get('date_death', '').strip():
+            data['date_death'] = raw.get('date_death').strip()
+        if raw.get('description', '').strip():
+            data['description'] = raw.get('description').strip()
+        if raw.get('burial_place', '').strip():
+            data['burial_place'] = raw.get('burial_place').strip()
+        if raw.get('visualization_state') == 'on':
+            data['visualization_state'] = True
+        if raw.get('visualization_code', '').strip():
+            data['visualization_code'] = raw.get('visualization_code').strip()
 
-        # 2) Llamar a API para actualizar fallecido (texto, relaciones, imágenes)
+        # Relaciones
+        related_ids = raw.getlist('related_deceased[]')
+        if related_ids:
+            data['related_deceased'] = related_ids
+            data['relationship_type'] = raw.getlist('relationship_type[]')
+            data['deleted_relation_ids'] = raw.getlist('deleted_relation_ids[]')
+
+        # Imágenes existentes
+        exist_img_ids = raw.getlist('existing_image_id[]')
+        if exist_img_ids:
+            data['existing_image_id'] = exist_img_ids
+            data['existing_image_event'] = [raw.get(f'existing_image_event_{i}', '') for i in range(len(exist_img_ids))]
+            data['existing_image_desc'] = [raw.get(f'existing_image_desc_{i}', '') for i in range(len(exist_img_ids))]
+            data['delete_image_ids'] = raw.getlist('delete_image_ids[]')
+
+        # Vídeos existentes
+        exist_vid_ids = raw.getlist('existing_video_id[]')
+        if exist_vid_ids:
+            data['existing_video_id'] = exist_vid_ids
+            data['existing_video_event'] = [raw.get(f'existing_video_event_{i}', '') for i in range(len(exist_vid_ids))]
+            data['existing_video_desc'] = [raw.get(f'existing_video_desc_{i}', '') for i in range(len(exist_vid_ids))]
+            data['delete_video_ids'] = raw.getlist('delete_video_ids[]')
+
+        # DEBUG
+        # print("DEBUG → AppWeb: payload a enviar:", data)
+
+        # 1) Actualizar objeto fallecido
         response = api_client.edit_family_member(id, data)
 
         if response and response.get("id_deceased"):
-            # 3) Ahora procesar los archivos de vídeo SI llegaron
-            #    En JavaScript normalmente enviarías FormData con archivos
-            #    Pero, como aquí estamos en la vista de Django, tomamos request.FILES
-            for idx, video_file in enumerate(request.FILES.getlist('videos')):
-                event_title = request.POST.get(f'video_event_{idx}', '')
-                description = request.POST.get(f'video_desc_{idx}', '')
+            # 2) Eliminar imágenes
+            for img_id in raw.getlist('delete_image_ids[]'):
+                api_client.delete_image(img_id)
 
-                files = { 'video_file': video_file }
-                payload = {
-                    'id_deceased': id,
-                    'event_title': event_title,
-                    'description': description,
-                }
+            # 3) Actualizar imágenes existentes
+            for idx, img_id in enumerate(raw.getlist('existing_image_id[]')):
+                event_title = raw.get(f'existing_image_event_{idx}', '')
+                description = raw.get(f'existing_image_desc_{idx}', '')
+                if event_title or description:
+                    payload = {'event_title': event_title, 'description': description}
+                    api_client.update_image(img_id, payload)
+
+            # 4) Subir nuevas imágenes
+            for idx, image_file in enumerate(request.FILES.getlist('images')):
+                event_title = raw.get(f'image_event_{idx}', '')
+                description = raw.get(f'image_desc_{idx}', '')
+                files = {'image_file': image_file}
+                payload = {'event_title': event_title, 'description': description, 'id_deceased': id}
+                api_client.upload_image(payload, files)
+
+            # 5) Eliminar vídeos
+            for vid_id in raw.getlist('delete_video_ids[]'):
+                api_client.delete_video(vid_id)
+
+            # 6) Actualizar vídeos existentes
+            for idx, vid_id in enumerate(raw.getlist('existing_video_id[]')):
+                event_title = raw.get(f'existing_video_event_{idx}', '')
+                description = raw.get(f'existing_video_desc_{idx}', '')
+                if event_title or description:
+                    payload = {'event_title': event_title, 'description': description}
+                    api_client.update_video(vid_id, payload)
+
+            # 7) Subir nuevos vídeos
+            for idx, video_file in enumerate(request.FILES.getlist('videos')):
+                event_title = raw.get(f'video_event_{idx}', '')
+                description = raw.get(f'video_desc_{idx}', '')
+                files = {'video_file': video_file}
+                payload = {'event_title': event_title, 'description': description, 'id_deceased': id}
                 api_client.upload_video(payload, files)
 
             return redirect('family_member_list')
-
         else:
-            error_msg = response.get('detail', 'Error editing family member.')
+            error_msg = response.get('detail', 'Error editing family member.') if response else 'Sin respuesta del servidor.'
             return render(request, 'edit_family_member.html', {'error': error_msg})
 
     else:
-        # GET: tal como indicamos, llamar a endpoints filtrados
-        miembro    = api_client.get_deceased(id)
+        # GET
+        miembro = api_client.get_deceased(id)
         relaciones = api_client.get_relations_by_deceased(id)
-        imagenes   = api_client.get_images_by_deceased(id)
-        videos     = api_client.get_videos_by_deceased(id)
+        imagenes = api_client.get_images_by_deceased(id)
+        videos = api_client.get_videos_by_deceased(id)
+
+        # print(imagenes)
+        # print(videos)
 
         return render(request, 'edit_family_member.html', {
-            'miembro':    miembro,
+            'miembro': miembro,
             'relaciones': relaciones,
-            'imagenes':   imagenes,
-            'videos':     videos,
+            'imagenes': imagenes,
+            'videos': videos,
         })
-
-
 
 @login_required_custom
 @csrf_exempt

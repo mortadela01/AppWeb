@@ -74,12 +74,15 @@ class APIClient:
         return resp.json() if resp.ok else None
 
     def update_video(self, video_id, data):
+        if not isinstance(data, dict):
+            raise ValueError("update_video: 'data' debe ser un dict JSON serializable.")
+        # print(f"DEBUG: Actualizando video con ID: {video_id}, datos: {data}")
         url = f"{API_BASE_URL}/videos/{video_id}/"
         resp = requests.put(url, json=data, headers=self._get_headers())
         return resp.json() if resp.ok else None
 
     def delete_video(self, video_id):
-        url = f"{API_BASE_URL}/videos/{video_id}/"
+        url = f"{API_BASE_URL}/videos/"
         resp = requests.delete(url, headers=self._get_headers())
         return resp.ok
 
@@ -100,9 +103,13 @@ class APIClient:
         return resp.json() if resp.ok else None
 
     def update_image(self, image_id, data):
+        if not isinstance(data, dict):
+            raise ValueError("update_image: 'data' debe ser un dict JSON serializable.")
+        # print(f"DEBUG: Actualizando imagen con ID: {image_id}, datos: {data}") 
         url = f"{API_BASE_URL}/images/{image_id}/"
         resp = requests.put(url, json=data, headers=self._get_headers())
         return resp.json() if resp.ok else None
+
 
     def delete_image(self, image_id):
         url = f"{API_BASE_URL}/images/{image_id}/"
@@ -223,14 +230,14 @@ class APIClient:
     # --------- APPWEB SPECIFIC ---------
     # Dashboard
     def get_dashboard(self):
-        # print(f"token de acceso: {self._get_headers()}")
+        # # print(f"token de acceso: {self._get_headers()}")
         url = f"{API_BASE_URL}/appweb/dashboard/"
         resp = requests.get(url, headers=self._get_headers())
         return resp.json() if resp.ok else {}
 
     # Family members list
     def get_family_members(self):
-        print(self._get_headers())  # Para depuración, borrar después
+        # print(self._get_headers())  # Para depuración, borrar después
         url = f"{API_BASE_URL}/appweb/family-members/"
         resp = requests.get(url, headers=self._get_headers())
         return resp.json() if resp.ok else {}
@@ -239,7 +246,7 @@ class APIClient:
     def add_family_member(self, data):
         url = f"{API_BASE_URL}/appweb/family-members/add/"
         resp = requests.post(url, json=data, headers=self._get_headers())
-        print(self._get_headers()) #borrar
+        # print(self._get_headers()) #borrar
         return resp.json() if resp.ok else None
 
     # Share family member
@@ -301,7 +308,7 @@ class APIClient:
         url = f"{API_BASE_URL}/users/by-email/"
         params = {'email': email}
         resp = requests.get(url, headers=self._get_headers(), params=params)
-        print(self._get_headers()) #borrar
+        # print(self._get_headers()) #borrar
         if resp.ok:
             return resp.json()
         return {'error': 'Request failed'}
