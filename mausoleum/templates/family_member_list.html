@@ -102,16 +102,16 @@
                     <td class="py-3 px-6">{{ miembro.name }}</td>
                     <td class="py-3 px-6">
                         {% if miembro.date_birth %}
-                        {{ miembro.date_birth|date:"Y-m-d" }}
+                            {{ miembro.date_birth|date:"Y-m-d" }}
                         {% else %}
-                        None
+                            <p class="text-red-500">Fecha de nacimiento no disponible</p>
                         {% endif %}
                     </td>
                     <td class="py-3 px-6">
                         {% if miembro.date_death %}
-                        {{ miembro.date_death|date:"Y-m-d" }}
+                            {{ miembro.date_death|date:"Y-m-d" }}
                         {% else %}
-                        None
+                            <p class="text-red-500">Fecha de fallecimiento no disponible</p>
                         {% endif %}
                     </td>
                     <td class="py-3 px-6">{{ miembro.burial_place }}</td>

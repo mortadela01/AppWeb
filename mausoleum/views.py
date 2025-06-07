@@ -17,7 +17,7 @@ from .api_client import APIClient
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-
+from datetime import datetime
 
 
 
@@ -188,22 +188,23 @@ def family_member_list(request):
         return redirect('auth0_login')
 
     token = user_session['access_token']
-    api_client = APIClient(access_token=token)
+    api_client = APIClient(access_token=token)  # Asegúrate de que api_client esté creado aquí
 
     data = api_client.get_family_members()
 
-    miembros = data.get('miembros', [])
-    permisos = data.get('permisos', [])
-    otros_deceased = data.get('otros_deceased', [])
-    notifications = data.get('notifications', [])        # <-- Agregado
-    unread_count = data.get('unread_count', 0)           # <-- Agregado
+    # Convertir las fechas a objetos datetime si es necesario
+    for miembro in data.get('miembros', []):
+        if miembro.get('date_birth'):
+            miembro['date_birth'] = datetime.strptime(miembro['date_birth'], '%Y-%m-%dT%H:%M:%S')
+        if miembro.get('date_death'):
+            miembro['date_death'] = datetime.strptime(miembro['date_death'], '%Y-%m-%dT%H:%M:%S')
 
     return render(request, 'family_member_list.html', {
-        'miembros': miembros,
-        'permisos': permisos,
-        'otros_deceased': otros_deceased,
-        'notifications': notifications,       # <-- Pasar al template
-        'unread_count': unread_count,         # <-- Pasar al template
+        'miembros': data.get('miembros', []),
+        'permisos': data.get('permisos', []),
+        'otros_deceased': data.get('otros_deceased', []),
+        'notifications': data.get('notifications', []),
+        'unread_count': data.get('unread_count', 0),
     })
 
 
